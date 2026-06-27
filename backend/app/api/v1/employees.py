@@ -812,6 +812,62 @@ def _build_org_tree(nodes: list) -> dict:
     return {"name": "Organization", "designation": "", "department": "", "photo_url": None, "children": roots}
 
 
+@employees_bp.route("/birthdays", methods=["GET"])
+@require_auth()
+def get_birthdays():
+    year  = int(request.args.get("year",  datetime.now().year))
+    month = int(request.args.get("month", datetime.now().month))
+    emps = Employee.query.filter_by(
+        tenant_id=g.tenant_id, is_deleted=False, is_active=True
+    ).filter(db.extract("month", Employee.date_of_birth) == month).all()
+    return jsonify({"birthdays": [
+        {"id": str(e.id), "name": e.full_name, "day": e.date_of_birth.day, "photo_url": e.photo_url}
+        for e in emps if e.date_of_birth
+    ]})
+
+
+@employees_bp.route("/anniversaries", methods=["GET"])
+@require_auth()
+def get_anniversaries():
+    year  = int(request.args.get("year",  datetime.now().year))
+    month = int(request.args.get("month", datetime.now().month))
+    emps = Employee.query.filter_by(
+        tenant_id=g.tenant_id, is_deleted=False, is_active=True
+    ).filter(db.extract("month", Employee.date_of_joining) == month).all()
+    return jsonify({"anniversaries": [
+        {"id": str(e.id), "name": e.full_name, "day": e.date_of_joining.day,
+         "years": year - e.date_of_joining.year, "photo_url": e.photo_url}
+        for e in emps if e.date_of_joining
+    ]})
+
+
+@employees_bp.route("/wish", methods=["POST"])
+@require_auth()
+def send_wish():
+    from app.models import Notification
+    data = request.get_json(silent=True) or {}
+    to_emp_id = data.get("employee_id", "")
+    message   = sanitize_string(data.get("message", ""), 1000)
+    wish_type = data.get("type", "birthday")
+    if not to_emp_id or not message:
+        return jsonify({"error": "employee_id and message are required"}), 400
+    to_emp = Employee.query.filter_by(
+        id=to_emp_id, tenant_id=g.tenant_id, is_deleted=False
+    ).first_or_404()
+    label = "Birthday" if wish_type == "birthday" else "Work Anniversary"
+    notif = Notification(
+        id=uuid.uuid4(), tenant_id=g.tenant_id,
+        employee_id=str(to_emp.id),
+        title=f"{label} Wish from {g.employee.full_name}",
+        body=message,
+        type="wish",
+    )
+    db.session.add(notif)
+    db.session.commit()
+    log_action("send_wish", "employee", to_emp.id)
+    return jsonify({"message": f"Wish sent to {to_emp.full_name}"})
+
+
 @employees_bp.route("/org-chart", methods=["GET"])
 @require_auth()
 def org_chart():

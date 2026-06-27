@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HRMS Portal — Run payroll like clockwork</title>
+<meta name="description" content="HR, attendance, leave and payroll for India, UAE and US teams. One ledger. No spreadsheets.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --ink:        #1c2b1f;
+  --paper:      #f6f3ec;
+  --ledger:     #e8e2d2;
+  --rule:       #c9c0a6;
+  --stamp:      #b5472f;
+  --stamp-dark: #8e3621;
+  --teal:       #1f5c52;
+  --teal-light: #e3ede9;
+  --gold:       #c79a3d;
+  --mono: 'IBM Plex Mono', monospace;
+  --serif: 'Fraunces', serif;
+  --sans: 'Inter', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(28,43,31,0.035) 31px, rgba(28,43,31,0.035) 32px);
+}
+a{color:inherit;text-decoration:none}
+img,svg{display:block;max-width:100%}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+.mono{font-family:var(--mono)}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+
+.topbar{position:sticky;top:0;z-index:50;background:rgba(246,243,236,0.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-0.01em}
+.brand .mark{width:28px;height:28px;border:1.5px solid var(--ink);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:500;transform:rotate(-3deg)}
+.nav-links{display:flex;gap:32px;font-size:14px;font-weight:500}
+.nav-links a{opacity:0.75;transition:opacity .15s}
+.nav-links a:hover{opacity:1}
+.topbar .cta{font-family:var(--mono);font-size:12.5px;font-weight:500;padding:9px 18px;background:var(--ink);color:var(--paper);border-radius:2px;letter-spacing:0.02em}
+.topbar .cta:hover{background:var(--stamp)}
+@media(max-width:760px){.nav-links{display:none}}
+
+.hero{padding:88px 0 64px;position:relative;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.1fr 0.9fr;gap:56px;align-items:center}
+@media(max-width:880px){.hero .wrap{grid-template-columns:1fr}}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--stamp);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:'';width:18px;height:1px;background:var(--stamp)}
+h1.headline{font-family:var(--serif);font-weight:600;font-size:clamp(40px,5.2vw,64px);line-height:1.02;letter-spacing:-0.015em;margin-bottom:22px}
+h1.headline em{font-style:italic;color:var(--teal)}
+.sub{font-size:17px;color:#3d4a3f;max-width:480px;margin-bottom:30px}
+.hero-ctas{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.btn-primary{font-family:var(--mono);font-size:13px;font-weight:500;padding:14px 26px;background:var(--stamp);color:#fff;border-radius:2px;letter-spacing:0.02em;transition:background .15s, transform .15s;display:inline-block}
+.btn-primary:hover{background:var(--stamp-dark);transform:translateY(-1px)}
+.btn-ghost{font-family:var(--mono);font-size:13px;font-weight:500;padding:14px 22px;border:1.5px solid var(--ink);border-radius:2px;letter-spacing:0.02em;display:inline-block}
+.btn-ghost:hover{background:var(--ink);color:var(--paper)}
+.hero-meta{margin-top:26px;font-family:var(--mono);font-size:12px;color:#6b7268;display:flex;gap:18px;flex-wrap:wrap}
+
+.stamp-card{background:var(--ledger);border:1px solid var(--rule);border-radius:4px;padding:26px;position:relative;box-shadow:0 18px 40px -16px rgba(28,43,31,0.25)}
+.stamp-card::before{content:'';position:absolute;top:14px;right:14px;width:62px;height:62px;border:2px solid var(--stamp);border-radius:50%;opacity:0.85;transform:rotate(-12deg)}
+.stamp-card::after{content:'PAID';position:absolute;top:34px;right:24px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--stamp);letter-spacing:0.08em;transform:rotate(-12deg)}
+.payslip-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--rule);font-family:var(--mono);font-size:13px}
+.payslip-row:last-child{border-bottom:none;font-weight:600;padding-top:14px}
+.payslip-title{font-family:var(--serif);font-size:15px;font-weight:600;margin-bottom:4px}
+.payslip-sub{font-family:var(--mono);font-size:11px;color:#6b7268;margin-bottom:16px;letter-spacing:0.03em}
+.net-amount{color:var(--teal);font-size:17px}
+
+.section{padding:80px 0}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:44px;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--rule);padding-bottom:18px}
+.section-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--teal)}
+.section-title{font-family:var(--serif);font-size:clamp(26px,3.4vw,36px);font-weight:600;letter-spacing:-0.01em}
+.section-count{font-family:var(--mono);font-size:13px;color:#8a9088}
+
+.ledger{border-top:1px solid var(--ink)}
+.ledger-row{display:grid;grid-template-columns:64px 1fr 1.4fr;gap:24px;padding:24px 0;border-bottom:1px solid var(--rule);align-items:start}
+@media(max-width:700px){.ledger-row{grid-template-columns:40px 1fr;}.ledger-row .ledger-desc{grid-column:1/-1;margin-top:6px}}
+.ledger-num{font-family:var(--mono);font-size:13px;color:var(--stamp);font-weight:500}
+.ledger-name{font-family:var(--serif);font-size:21px;font-weight:600}
+.ledger-desc{font-size:14.5px;color:#3d4a3f;max-width:480px}
+.ledger-desc .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;background:var(--teal-light);color:var(--teal);padding:2px 8px;border-radius:10px;margin-right:6px;margin-top:8px;letter-spacing:0.02em}
+
+.compliance{background:var(--ink);color:var(--paper);padding:64px 0}
+.compliance .section-eyebrow{color:var(--gold)}
+.compliance .section-title{color:var(--paper)}
+.compliance .section-head{border-color:rgba(246,243,236,0.2)}
+.compliance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(246,243,236,0.15);border:1px solid rgba(246,243,236,0.15)}
+@media(max-width:760px){.compliance-grid{grid-template-columns:1fr}}
+.compliance-cell{background:var(--ink);padding:30px 26px}
+.compliance-flag{font-family:var(--mono);font-size:11px;letter-spacing:0.1em;color:var(--gold);margin-bottom:10px}
+.compliance-cell h3{font-family:var(--serif);font-size:22px;margin-bottom:12px}
+.compliance-cell ul{list-style:none;font-size:13.5px;color:rgba(246,243,236,0.75)}
+.compliance-cell li{padding:5px 0;border-bottom:1px solid rgba(246,243,236,0.08);font-family:var(--mono);font-size:12.5px}
+.compliance-cell li:last-child{border-bottom:none}
+
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:880px){.pricing-grid{grid-template-columns:1fr}}
+.price-card{border:1px solid var(--rule);border-radius:4px;padding:32px 28px;background:#fff;position:relative;display:flex;flex-direction:column}
+.price-card.featured{border-color:var(--stamp);border-width:2px}
+.price-card.featured::before{content:'MOST CHOSEN';position:absolute;top:-12px;left:28px;background:var(--stamp);color:#fff;font-family:var(--mono);font-size:10px;letter-spacing:0.08em;padding:4px 10px;border-radius:2px}
+.price-tier{font-family:var(--mono);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.price-name{font-family:var(--serif);font-size:25px;font-weight:600;margin-bottom:6px}
+.price-amount{font-family:var(--mono);font-size:32px;font-weight:500;margin:14px 0 4px}
+.price-amount span{font-size:14px;color:#8a9088;font-weight:400}
+.price-emp{font-size:12.5px;color:#6b7268;margin-bottom:20px;font-family:var(--mono)}
+.price-features{list-style:none;font-size:13.5px;color:#3d4a3f;flex:1}
+.price-features li{padding:7px 0;border-bottom:1px solid #efebe1;display:flex;gap:8px}
+.price-features li::before{content:'—';color:var(--stamp);flex-shrink:0}
+.price-features li:last-child{border-bottom:none}
+.price-card .btn-ghost,.price-card .btn-primary{margin-top:22px;text-align:center;display:block}
+
+.process{display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative}
+@media(max-width:880px){.process{grid-template-columns:1fr}}
+.process::before{content:'';position:absolute;top:13px;left:0;right:0;height:1px;background:var(--rule)}
+@media(max-width:880px){.process::before{display:none}}
+.process-step{padding:0 20px 0 0;position:relative}
+.process-step:first-child{padding-left:0}
+.step-num{font-family:var(--mono);font-size:12px;width:26px;height:26px;border-radius:50%;background:var(--paper);border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;z-index:2}
+.step-title{font-family:var(--serif);font-size:17px;font-weight:600;margin-bottom:8px}
+.step-desc{font-size:13.5px;color:#3d4a3f}
+
+.proof{background:var(--teal-light);border-radius:4px;padding:48px;display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center}
+@media(max-width:760px){.proof{grid-template-columns:1fr;padding:32px}}
+.proof-quote{font-family:var(--serif);font-size:24px;line-height:1.35;font-weight:500}
+.proof-attr{font-family:var(--mono);font-size:12.5px;color:var(--teal);margin-top:16px}
+.proof-stat{text-align:center;font-family:var(--mono)}
+.proof-stat .num{font-size:42px;color:var(--teal);font-weight:500}
+.proof-stat .lbl{font-size:11px;color:#5a6b5e;letter-spacing:0.05em;text-transform:uppercase}
+
+.faq-item{border-bottom:1px solid var(--rule)}
+.faq-q{padding:20px 0;font-family:var(--serif);font-size:17px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.faq-q .x{font-family:var(--mono);font-size:18px;color:var(--stamp);transition:transform .2s;flex-shrink:0}
+.faq-item.open .faq-q .x{transform:rotate(45deg)}
+.faq-a{font-size:14.5px;color:#3d4a3f;max-height:0;overflow:hidden;transition:max-height .25s ease}
+.faq-item.open .faq-a{max-height:200px;padding-bottom:20px}
+
+.final-cta{background:var(--stamp);color:#fff;padding:80px 0;text-align:center;position:relative;overflow:hidden}
+.final-cta h2{font-family:var(--serif);font-size:clamp(28px,4vw,42px);font-weight:600;margin-bottom:16px;letter-spacing:-0.01em}
+.final-cta p{font-size:16px;opacity:0.85;margin-bottom:30px;max-width:480px;margin-left:auto;margin-right:auto}
+.final-cta .btn-primary{background:#fff;color:var(--stamp)}
+.final-cta .btn-primary:hover{background:var(--paper)}
+.final-cta .domain-preview{font-family:var(--mono);font-size:13px;margin-top:24px;opacity:0.8}
+.final-cta .domain-preview strong{border-bottom:1px dashed rgba(255,255,255,0.5)}
+
+footer{padding:48px 0;border-top:1px solid var(--rule)}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:var(--serif);font-weight:600;font-size:15px}
+.footer-links{display:flex;gap:24px;font-size:13px;color:#6b7268}
+.footer-meta{font-family:var(--mono);font-size:11.5px;color:#8a9088}
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease, transform .5s ease}
+.reveal.in{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="mark">H</span>HRMS Portal</div>
+    <nav class="nav-links">
+      <a href="#modules">Modules</a>
+      <a href="#compliance">Compliance</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a href="#pricing" class="cta">Start free trial →</a>
+  </div>
+</div>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">For HR teams in India · UAE · US</div>
+      <h1 class="headline">Run payroll<br>like <em>clockwork</em>,<br>not chaos.</h1>
+      <p class="sub">Attendance, leave, and payroll on one ledger — with PF, ESI, TDS, UAE gratuity and US FICA computed correctly, every single month.</p>
+      <div class="hero-ctas">
+        <a href="#pricing" class="btn-primary">Start free trial →</a>
+        <a href="#modules" class="btn-ghost">See the modules</a>
+      </div>
+      <div class="hero-meta">
+        <span>✓ Live in 48 hours</span>
+        <span>✓ No spreadsheets</span>
+        <span>✓ Your own subdomain</span>
+      </div>
+    </div>
+    <div class="stamp-card reveal">
+      <div class="payslip-title">Payslip — June 2026</div>
+      <div class="payslip-sub">PRIYA SHARMA · EMP003 · FINANCE</div>
+      <div class="payslip-row"><span>Basic</span><span>₹ 20,000</span></div>
+      <div class="payslip-row"><span>HRA</span><span>₹ 10,000</span></div>
+      <div class="payslip-row"><span>PF (employee)</span><span>− ₹ 1,800</span></div>
+      <div class="payslip-row"><span>TDS</span><span>− ₹ 420</span></div>
+      <div class="payslip-row"><span>Net pay</span><span class="net-amount">₹ 27,780</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="modules">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">The ledger</div>
+        <div class="section-title">Every module, one login</div>
+      </div>
+      <div class="section-count mono">06 modules</div>
+    </div>
+    <div class="ledger">
+      <div class="ledger-row reveal">
+        <div class="ledger-num">01</div>
+        <div class="ledger-name">Employee Self-Service</div>
+        <div class="ledger-desc">Profiles, documents, org chart and letters in one place — employees update their own details, HR approves the rest.
+          <div><span class="tag">profile %</span><span class="tag">org chart</span><span class="tag">bulk import</span></div>
+        </div>
+      </div>
+      <div class="ledger-row reveal">
+        <div class="ledger-num">02</div>
+        <div class="ledger-name">Attendance &amp; roster</div>
+        <div class="ledger-desc">Web check-in, biometric device sync, shift rosters and regularization requests — reconciled automatically against payroll.
+          <div><span class="tag">ZKTeco sync</span><span class="tag">shift rules</span></div>
+        </div>
+      </div>
+      <div class="ledger-row reveal">
+        <div class="ledger-num">03</div>
+        <div class="ledger-name">Leave management</div>
+        <div class="ledger-desc">Configurable leave types, monthly accrual, comp-off, and a balance ledger employees can actually read.
+          <div><span class="tag">auto accrual</span><span class="tag">comp-off</span></div>
+        </div>
+      </div>
+      <div class="ledger-row reveal">
+        <div class="ledger-num">04</div>
+        <div class="ledger-name">Payroll &amp; statutory</div>
+        <div class="ledger-desc">PF, ESI, professional tax and TDS for India; gratuity and WPS for UAE; FICA for the US. Payslips and Form 16 generate themselves.
+          <div><span class="tag">PF/ESI/TDS</span><span class="tag">Form 16</span><span class="tag">Tally export</span></div>
+        </div>
+      </div>
+      <div class="ledger-row reveal">
+        <div class="ledger-num">05</div>
+        <div class="ledger-name">Performance &amp; letters</div>
+        <div class="ledger-desc">Goal-setting, self and manager ratings, 360° peer feedback, and offer, experience and appraisal letters on demand.
+          <div><span class="tag">360° feedback</span><span class="tag">letter PDFs</span></div>
+        </div>
+      </div>
+      <div class="ledger-row reveal">
+        <div class="ledger-num">06</div>
+        <div class="ledger-name">Reports &amp; admin</div>
+        <div class="ledger-desc">Headcount, attendance and payroll registers exportable in one click — plus a super admin view across every client you manage.
+          <div><span class="tag">CSV/Excel</span><span class="tag">multi-tenant</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="compliance" id="compliance">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">Statutory by design</div>
+        <div class="section-title">Built for three jurisdictions</div>
+      </div>
+    </div>
+    <div class="compliance-grid">
+      <div class="compliance-cell">
+        <div class="compliance-flag">INDIA</div>
+        <h3>Full statutory stack</h3>
+        <ul>
+          <li>PF — 12% employee + 13.67% employer</li>
+          <li>ESI — 0.75% / 3.25%, ₹21K ceiling</li>
+          <li>Professional Tax — state-wise slabs</li>
+          <li>TDS — new regime, auto-computed</li>
+          <li>Form 16, PF ECR, Tally exports</li>
+        </ul>
+      </div>
+      <div class="compliance-cell">
+        <div class="compliance-flag">UAE</div>
+        <h3>WPS-ready</h3>
+        <ul>
+          <li>Gratuity — 21/30 day calculation</li>
+          <li>Resignation vs. termination logic</li>
+          <li>WPS SIF file generation</li>
+          <li>AED-denominated payslips</li>
+        </ul>
+      </div>
+      <div class="compliance-cell">
+        <div class="compliance-flag">UNITED STATES</div>
+        <h3>FICA built in</h3>
+        <ul>
+          <li>Social Security — 6.2%, wage-base aware</li>
+          <li>Medicare — 1.45% + 0.9% additional</li>
+          <li>YTD-aware cumulative computation</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">Onboarding</div>
+        <div class="section-title">Four steps to your first payslip</div>
+      </div>
+    </div>
+    <div class="process">
+      <div class="process-step reveal">
+        <div class="step-num mono">1</div>
+        <div class="step-title">Claim your subdomain</div>
+        <div class="step-desc">yourcompany.myhrmsportal.com — provisioned the moment you sign up.</div>
+      </div>
+      <div class="process-step reveal">
+        <div class="step-num mono">2</div>
+        <div class="step-title">Import your team</div>
+        <div class="step-desc">Drop in a CSV. Departments, shifts and leave types come pre-configured.</div>
+      </div>
+      <div class="process-step reveal">
+        <div class="step-num mono">3</div>
+        <div class="step-title">Run a payroll cycle</div>
+        <div class="step-desc">Attendance feeds straight into payslips. PF, ESI and TDS calculate themselves.</div>
+      </div>
+      <div class="process-step reveal">
+        <div class="step-num mono">4</div>
+        <div class="step-title">Hand employees the keys</div>
+        <div class="step-desc">Self-service login for payslips, leave, and attendance — no more "can you email me my PF number."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="proof reveal">
+      <div>
+        <div class="proof-quote">"We replaced four spreadsheets and a WhatsApp group with one login. Payroll that used to take two days now takes twenty minutes."</div>
+        <div class="proof-attr">— HR LEAD, 80-PERSON MANUFACTURING FIRM, PUNE</div>
+      </div>
+      <div class="proof-stat">
+        <div class="num">20<span style="font-size:20px">min</span></div>
+        <div class="lbl">Avg. payroll run</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">Pricing</div>
+        <div class="section-title">Pay for headcount, not seats</div>
+      </div>
+      <div class="section-count mono">billed monthly, cancel anytime</div>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card reveal">
+        <div class="price-tier">Starter</div>
+        <div class="price-name">Core</div>
+        <div class="price-amount">₹50<span>/employee/mo</span></div>
+        <div class="price-emp">Up to 100 employees</div>
+        <ul class="price-features">
+          <li>Employee self-service</li>
+          <li>Attendance &amp; roster</li>
+          <li>Leave management</li>
+          <li>Email support</li>
+        </ul>
+        <a href="#" class="btn-ghost">Start free trial</a>
+      </div>
+      <div class="price-card featured reveal">
+        <div class="price-tier">Standard</div>
+        <div class="price-name">Growth</div>
+        <div class="price-amount">₹120<span>/employee/mo</span></div>
+        <div class="price-emp">Up to 500 employees</div>
+        <ul class="price-features">
+          <li>Everything in Core</li>
+          <li>Full payroll — PF/ESI/PT/TDS</li>
+          <li>Payslips, Form 16, Tally export</li>
+          <li>Biometric device sync</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="#" class="btn-primary">Start free trial</a>
+      </div>
+      <div class="price-card reveal">
+        <div class="price-tier">Premium</div>
+        <div class="price-name">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <div class="price-emp">Unlimited employees, multi-country</div>
+        <ul class="price-features">
+          <li>Everything in Growth</li>
+          <li>UAE &amp; US payroll</li>
+          <li>360° performance reviews</li>
+          <li>Dedicated account manager</li>
+          <li>Custom integrations</li>
+        </ul>
+        <a href="#" class="btn-ghost">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">Questions</div>
+        <div class="section-title">Before you ask support</div>
+      </div>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can I migrate from Excel mid-month? <span class="x">+</span></div>
+        <div class="faq-a">Yes. Bulk-import employees via CSV at any point — attendance and leave balances can be backdated to the start of the current cycle so nothing's lost.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does this replace my CA? <span class="x">+</span></div>
+        <div class="faq-a">No — and we'd recommend against that. The engine computes PF, ESI, PT and TDS correctly, but we still suggest a CA sign-off before your first live payroll run, the same way you'd review any new system.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What happens to our data if we cancel? <span class="x">+</span></div>
+        <div class="faq-a">You can export every record — employees, attendance, payslips — as CSV at any time. We retain a backup for 90 days after cancellation, then delete it.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can each department see only their own people? <span class="x">+</span></div>
+        <div class="faq-a">Yes. Managers see their direct reports; HR admins see everyone. Role-based access is built into every module, not bolted on.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final-cta">
+  <div class="wrap">
+    <h2>Your first payslip,<br>twenty minutes from now.</h2>
+    <p>No credit card. No sales call. Just your company name and a CSV of your team.</p>
+    <a href="#" class="btn-primary">Claim your subdomain →</a>
+    <div class="domain-preview">Your portal will live at <strong>yourcompany.myhrmsportal.com</strong></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-brand">HRMS Portal</div>
+    <div class="footer-links">
+      <a href="#modules">Modules</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </div>
+    <div class="footer-meta mono">© 2026 — built for India, UAE &amp; US payroll</div>
+  </div>
+</footer>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>

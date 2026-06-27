@@ -1,0 +1,20 @@
+{% extends "email/base.html" %}
+{% block content %}
+<div style="text-align:center;margin-bottom:20px;font-size:48px;">🎉</div>
+<h2 style="margin:0 0 8px;font-size:22px;color:#1e293b;text-align:center;">
+  {{ years }} Year{{ 's' if years != 1 else '' }} — Congratulations!
+</h2>
+<p style="margin:0 0 24px;color:#64748b;font-size:14px;text-align:center;">Work anniversary milestone</p>
+
+<p style="margin:0 0 16px;color:#334155;">Hi <strong>{{ employee_name }}</strong>,</p>
+<p style="margin:0 0 16px;color:#334155;line-height:1.6;">
+  Today marks <strong>{{ years }} year{{ 's' if years != 1 else '' }}</strong> since you joined <strong>{{ company_name or 'the team' }}</strong>.
+  That's a significant milestone and we want to take a moment to celebrate it!
+</p>
+<p style="margin:0 0 24px;color:#334155;line-height:1.6;">
+  Your contributions, dedication, and hard work over these years have made a real difference.
+  Thank you for being part of our journey.
+</p>
+
+<p style="margin:0;color:#334155;">With appreciation,<br><strong>HR Team</strong></p>
+{% endblock %}

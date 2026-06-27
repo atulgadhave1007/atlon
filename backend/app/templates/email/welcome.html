@@ -1,0 +1,40 @@
+{% extends "email/base.html" %}
+{% block content %}
+<h2 style="margin:0 0 8px;font-size:20px;color:#1e293b;">Welcome to {{ company_name or 'the team' }}! 🎉</h2>
+<p style="margin:0 0 24px;color:#64748b;font-size:14px;">Your Atlon HRMS account has been created.</p>
+
+<p style="margin:0 0 16px;color:#334155;">Hi <strong>{{ employee_name }}</strong>,</p>
+<p style="margin:0 0 20px;color:#334155;line-height:1.6;">
+  We're excited to have you on board. Your HR portal account is ready — here are your login credentials:
+</p>
+
+<table cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:20px;margin-bottom:24px;width:100%;">
+  <tr>
+    <td style="padding:6px 0;">
+      <span style="color:#0284c7;font-size:13px;font-weight:600;display:inline-block;width:140px;">Portal URL</span>
+      <span style="color:#1e293b;font-size:13px;">{{ portal_url or 'https://app.atlon.in' }}</span>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0;">
+      <span style="color:#0284c7;font-size:13px;font-weight:600;display:inline-block;width:140px;">Employee ID</span>
+      <span style="color:#1e293b;font-size:13px;">{{ employee_number }}</span>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0;">
+      <span style="color:#0284c7;font-size:13px;font-weight:600;display:inline-block;width:140px;">Temporary Password</span>
+      <span style="color:#1e293b;font-size:13px;font-family:monospace;background:#e0f2fe;padding:2px 8px;border-radius:4px;">{{ temp_password }}</span>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0 0 8px;color:#334155;font-size:13px;">
+  <strong>Important:</strong> You will be prompted to change your password on first login.
+</p>
+<p style="margin:0 0 24px;color:#64748b;font-size:13px;">
+  Your date of joining is <strong>{{ date_of_joining }}</strong>. If you have any questions, please contact your HR team.
+</p>
+
+<p style="margin:0;color:#334155;">Warm regards,<br><strong>HR Team</strong></p>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "email/base.html" %}
+{% block content %}
+<div style="text-align:center;margin-bottom:20px;font-size:48px;">🎂</div>
+<h2 style="margin:0 0 8px;font-size:22px;color:#1e293b;text-align:center;">Happy Birthday, {{ first_name }}!</h2>
+<p style="margin:0 0 24px;color:#64748b;font-size:14px;text-align:center;">Wishing you a wonderful day filled with joy.</p>
+
+<p style="margin:0 0 16px;color:#334155;line-height:1.6;">
+  On behalf of everyone at <strong>{{ company_name or 'the team' }}</strong>, we wish you a very Happy Birthday!
+  May this year bring you great success, health, and happiness.
+</p>
+<p style="margin:0 0 24px;color:#334155;line-height:1.6;">
+  Thank you for your continued dedication and for being such a valued part of our team.
+</p>
+
+<p style="margin:0;color:#334155;">With warm wishes,<br><strong>HR Team</strong></p>
+{% endblock %}
