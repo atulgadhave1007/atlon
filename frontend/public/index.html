@@ -625,18 +625,18 @@ tbody tr:hover{background:var(--c-bg)}
 .profile-completion-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#22c55e,#16a34a)}
 .profile-completion-fill.incomplete{background:linear-gradient(90deg,#22c55e 80%,#ef4444 80%)}
 
-.profile-tabs{display:flex;gap:0;flex-wrap:nowrap;overflow-x:auto;margin-bottom:20px;border-bottom:none}
+.profile-tabs{display:flex;border-bottom:2px solid #dee2e6;margin-bottom:0;overflow-x:auto}
 .profile-tab{
-  padding:8px 16px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;
-  border:1px solid #22c55e;color:#22c55e;margin-right:4px;margin-bottom:4px;
-  display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all 0.15s;
+  flex:1;min-width:0;position:relative;padding:10px 4px 8px;
+  font-size:12px;font-weight:500;cursor:pointer;
+  background:#fff;color:#495057;
+  border:1px solid #dee2e6;border-top:3px solid transparent;border-bottom:none;
+  text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:border-top-color 0.15s;
 }
-.profile-tab:hover{background:#f0fdf4}
-.profile-tab.active{background:#22c55e;color:#fff}
-.profile-tab.warn{border-color:#ef4444;color:#ef4444}
-.profile-tab.warn:hover{background:#fef2f2}
-.profile-tab.active.warn{background:#ef4444;color:#fff}
-.profile-tab .tab-check{font-size:12px}
+.profile-tab:hover{background:#f8f9fa}
+.profile-tab.active{border-top:3px solid #4e73df;background:#fff;color:#333;margin-bottom:-2px;border-bottom:2px solid #fff;z-index:1}
+.profile-tab .tab-icon{position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;font-size:9px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center}
 
 .profile-section-title{font-size:14px;font-weight:600;color:#059669;margin:20px 0 12px}
 .profile-photo-wrap{
@@ -2832,13 +2832,16 @@ async function toggleTenantStatus(id, newStatus) {
 // ── Profile Tab state ─────────────────────────────────────────────────────────
 let _profileData = null;
 let _profileTab = 'personal';
+let _profileEditMode = false;
 
 Pages['profile'] = async function(tab) {
-  if (tab) _profileTab = tab;
+  const tabId = (typeof tab === 'string' && tab) ? tab : null;
+  if (!tabId) { _profileTab = 'personal'; _profileEditMode = false; }
+  else if (tabId !== _profileTab) _profileEditMode = false;
+  if (tabId) _profileTab = tabId;
   _profileData = await GET('/employees/me');
   if (!_profileData) return;
-  const emp = _profileData;
-  renderProfilePage(emp);
+  renderProfilePage(_profileData);
 };
 
 function renderProfilePage(emp) {
@@ -2852,55 +2855,51 @@ function renderProfilePage(emp) {
     { id:'prevjob',  label:'Previous Employment' },
   ];
 
-  const completedSections = [
-    !!emp.first_name, !!emp.email, !!emp.employee_number,
-    !!emp.department, !!emp.designation, !!emp.date_of_joining,
-    !!(emp.address_line1 || emp.present_address),
-    !!(emp.pan_number || emp.aadhaar_number),
-  ];
-  const pct = Math.round((completedSections.filter(Boolean).length / completedSections.length) * 100);
+  const tabComplete = {
+    personal: !!(emp.first_name||emp.name) && !!emp.gender && !!emp.date_of_birth && !!emp.blood_group,
+    work:     !!(emp.designation && emp.department && emp.date_of_joining),
+    contact:  !!(emp.present_address_line1 || emp.address_line1),
+    document: !!(emp.pan_number && emp.aadhaar_number),
+    education:!!(emp.education && emp.education.length),
+    family:   !!(emp.family_members && emp.family_members.length) || !!emp.father_name,
+    prevjob:  !!(emp.prev_employment && emp.prev_employment.length),
+  };
 
-  const tabBar = tabs.map(t => `
-    <button class="profile-tab${_profileTab===t.id?' active':''}" onclick="Pages['profile']('${t.id}')">${t.label}</button>
-  `).join('');
+  const completedCount = Object.values(tabComplete).filter(Boolean).length;
+  const pct = Math.round((completedCount / tabs.length) * 100);
 
-  const initials = (emp.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  const tabBar = tabs.map(t => {
+    const isActive = _profileTab === t.id;
+    const isComplete = tabComplete[t.id];
+    const iconBg = isComplete ? '#22c55e' : '#f59e0b';
+    const icon = `<span class="tab-icon" style="background:${iconBg}">${isComplete?'✓':'!'}</span>`;
+    let cls = 'profile-tab' + (isActive ? ' active' : '');
+    return `<button class="${cls}" onclick="Pages['profile']('${t.id}')">${t.label}${icon}</button>`;
+  }).join('');
 
   $('page-content').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <h2 style="font-size:18px;font-weight:700;color:#111827">Personal Profile</h2>
-      <div class="profile-completion">
-        <span style="font-size:12px;color:#6b7280">Profile Completion</span>
-        <div class="profile-completion-bar">
-          <div class="profile-completion-fill" style="width:${pct}%"></div>
-        </div>
-        <span style="font-size:12px;font-weight:600;color:#059669">${pct}%</span>
-      </div>
+    <div style="font-size:12px;color:#6b7280;margin-bottom:6px">
+      <span style="cursor:pointer;color:#1e3a8a;font-weight:500" onclick="navigate('dashboard')">Home</span>
+      <span style="margin:0 5px;color:#9ca3af">›</span>
+      <span>Profile</span>
     </div>
 
-    <!-- Photo + Name row -->
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-body" style="display:flex;align-items:center;gap:20px;padding:16px 20px">
-        <div style="position:relative">
-          <div class="avatar" style="width:72px;height:72px;font-size:26px;background:#dbeafe;color:#1e3a8a">${initials}</div>
-        </div>
-        <div>
-          <div style="font-size:16px;font-weight:700;color:#111827">${emp.name||'-'}</div>
-          <div style="font-size:12px;color:#6b7280">${emp.employee_number||''} &nbsp;|&nbsp; ${emp.designation||''} &nbsp;|&nbsp; ${emp.department||''}</div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-sm btn-secondary" onclick="triggerPhotoUpload()">Upload Photo</button>
-            <button class="btn btn-sm btn-secondary" style="color:#ef4444;border-color:#ef4444" onclick="removePhoto()">Remove</button>
-          </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h2 style="font-size:15px;font-weight:500;color:#111827;margin:0">Profile Details</h2>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <span style="font-size:11px;color:#374151;font-weight:400;cursor:pointer">${pct}% Completed (Click to See)</span>
+        <div style="width:240px;height:12px;border-radius:20px;overflow:hidden;background:#fb1717">
+          <div style="height:100%;width:${pct}%;background:#22c55e"></div>
         </div>
       </div>
     </div>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 14px 0">
 
-    <!-- Tabs -->
-    <div class="profile-tabs">${tabBar}</div>
-
-    <!-- Tab content -->
-    <div id="profile-tab-body">
-      ${renderProfileTab(_profileTab, emp)}
+    <div class="card" style="margin-top:0">
+      <div class="profile-tabs" style="margin-bottom:0">${tabBar}</div>
+      <div id="profile-tab-body">
+        ${renderProfileTab(_profileTab, emp)}
+      </div>
     </div>`;
 }
 
@@ -2920,54 +2919,144 @@ function renderProfileTab(tab, emp) {
 }
 
 function renderProfilePersonal(emp) {
-  return `
-    <div class="card">
-      <div class="card-body">
-        <!-- Basic Info -->
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div class="profile-section-title">Basic Information</div>
-          <button class="btn btn-sm btn-primary" onclick="showEditProfileModal('personal')">Edit</button>
-        </div>
-        <div class="field-grid-3">
-          ${profileField('First Name', emp.first_name||(emp.name||'').split(' ')[0])}
-          ${profileField('Middle Name', emp.middle_name||'')}
-          ${profileField('Last Name', emp.last_name||(emp.name||'').split(' ').slice(1).join(' '))}
-          ${profileField('Gender', emp.gender)}
-          ${profileField("Father's Name", emp.father_name)}
-          ${profileField('Date of Birth', emp.date_of_birth ? fmtDate(emp.date_of_birth) : '')}
-          ${profileField('Blood Group', emp.blood_group)}
-          ${profileField('Marital Status', emp.marital_status)}
-          ${profileField('Nationality', emp.nationality||'Indian')}
-          ${profileField('T-Shirt Size', emp.tshirt_size)}
-          ${profileField('Religion', emp.religion)}
-          ${profileField('Caste Category', emp.caste_category)}
-        </div>
+  const initials = (emp.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  const photoHtml = emp.photo_url
+    ? `<img src="${emp.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:#1e3a8a;background:#dbeafe;border-radius:50%">${initials}</div>`;
+  const firstName = emp.first_name || (emp.name||'').split(' ')[0] || '';
+  const lastName  = emp.last_name  || (emp.name||'').split(' ').slice(1).join(' ') || '';
+  const req = `<span style="color:#ef4444">* </span>`;
 
-        <!-- Bank Details -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-          <div class="profile-section-title">Bank Details</div>
-          <button class="btn btn-sm btn-primary" onclick="showEditProfileModal('bank')">Edit</button>
-        </div>
-        <div class="field-grid-3">
-          ${profileField('Account Holder Name', emp.bank_account_name)}
-          ${profileField('Bank Name', emp.bank_name)}
-          ${profileField('Account Number', emp.bank_account_number ? '••••' + emp.bank_account_number.slice(-4) : '')}
-          ${profileField('IFSC Code', emp.ifsc_code)}
-          ${profileField('Account Type', emp.bank_account_type)}
-          ${profileField('Branch Name', emp.bank_branch)}
-        </div>
-      </div>
+  if (!_profileEditMode) {
+    return `
+      <div style="padding:20px 24px">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+            <button class="btn btn-sm btn-primary" onclick="togglePersonalEdit()">Edit</button>
+          </div>
+          <div style="display:flex;gap:28px;align-items:flex-start">
+            <div style="flex-shrink:0">
+              <div style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #e5e7eb">${photoHtml}</div>
+            </div>
+            <div style="flex:1">
+              <div class="field-grid-3">
+                ${profileField(req+'Name', firstName)}
+                ${profileField('Middle name', emp.middle_name||'')}
+                ${profileField(req+'Last name', lastName)}
+                ${profileField(req+'Gender', emp.gender)}
+                ${profileField(req+"Father's Name", emp.father_name)}
+                ${profileField(req+'Date of Birth', emp.date_of_birth ? fmtDate(emp.date_of_birth) : '')}
+                ${profileField(req+'Blood Group', emp.blood_group)}
+                ${profileField('Marital Status', emp.marital_status)}
+                ${profileField('Nationality', emp.nationality||'Indian')}
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                ${profileField('T-Shirt size (For reference)', emp.tshirt_size)}
+              </div>
+            </div>
+          </div>
+
+          <div style="height:1px;background:#e5e7eb;margin:20px 0"></div>
+
+          <div class="profile-section-title" style="margin-top:0">Bank Details</div>
+          <div class="field-grid-3">
+            ${profileField('Bank Name', emp.bank_name)}
+            ${profileField('IFSC Code', emp.ifsc_code)}
+            ${profileField('Bank Account Holder Name', emp.bank_account_name)}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+            ${profileField('Bank Account Number', emp.bank_account_number||'')}
+          </div>
+      </div>`;
+  }
+
+  // ── EDIT MODE ──
+  const gOpts  = ['Male','Female','Other','Prefer not to say'].map(v=>`<option ${emp.gender===v?'selected':''}>${v}</option>`).join('');
+  const bgOpts = ['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(v=>`<option ${emp.blood_group===v?'selected':''}>${v}</option>`).join('');
+  const msOpts = ['Single','Married','Divorced','Widowed'].map(v=>`<option ${emp.marital_status===v?'selected':''}>${v}</option>`).join('');
+  const natOpts= ['Indian','American','British','Emirati','Other'].map(v=>`<option ${(emp.nationality||'Indian')===v?'selected':''}>${v}</option>`).join('');
+  const tsOpts = ['','XS','S','M','L','XL','XXL','3XL'].map(v=>`<option ${emp.tshirt_size===v?'selected':''}>${v}</option>`).join('');
+  const bankOpts=['','ICICI BANK','HDFC BANK','STATE BANK OF INDIA','AXIS BANK','KOTAK MAHINDRA BANK','PUNJAB NATIONAL BANK','BANK OF BARODA','CANARA BANK','UNION BANK OF INDIA','YES BANK','IDFC FIRST BANK','FEDERAL BANK','INDIAN BANK','OTHER'].map(v=>`<option ${emp.bank_name===v?'selected':''}>${v}</option>`).join('');
+
+  const fi = (name, val, label, isReq=false) => `
+    <div class="field-cell">
+      <label>${isReq?req:''}${label}</label>
+      <input type="text" name="${name}" value="${(val||'').toString().replace(/"/g,'&quot;')}"
+        style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:13px;box-sizing:border-box">
+    </div>`;
+  const fs = (name, opts, label, isReq=false) => `
+    <div class="field-cell">
+      <label>${isReq?req:''}${label}</label>
+      <select name="${name}" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:13px;background:#fff;box-sizing:border-box">
+        ${opts}
+      </select>
+    </div>`;
+
+  return `
+    <div style="padding:20px 24px">
+      <form id="personal-info-form" onsubmit="submitPersonalInfoForm(event)">
+          <div style="display:flex;gap:28px;align-items:flex-start">
+            <div style="flex-shrink:0;width:130px;text-align:center">
+              <div style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #e5e7eb;margin:0 auto">${photoHtml}</div>
+              <button type="button" onclick="triggerPhotoUpload()"
+                style="margin-top:10px;width:100%;background:#374151;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:12px;cursor:pointer">
+                Upload Picture
+              </button>
+              <div style="font-size:10px;color:#6b7280;margin-top:4px;text-align:left;line-height:1.4">
+                Only png,jpg,jpeg formats.<br>Size less than 2 MB
+              </div>
+            </div>
+            <div style="flex:1">
+              <div class="field-grid-3">
+                ${fi('first_name', firstName, 'Name', true)}
+                ${fi('middle_name', emp.middle_name||'', 'Middle name')}
+                ${fi('last_name', lastName, 'Last name', true)}
+                ${fs('gender', gOpts, 'Gender', true)}
+                ${fi('father_name', emp.father_name||'', "Father's Name", true)}
+                <div class="field-cell">
+                  <label>${req}Date of Birth</label>
+                  <input type="text" value="${emp.date_of_birth||''}" readonly
+                    style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:13px;background:#f3f4f6;color:#6b7280;box-sizing:border-box">
+                </div>
+                ${fs('blood_group', bgOpts, 'Blood Group', true)}
+                ${fs('marital_status', msOpts, 'Marital Status')}
+                ${fs('nationality', natOpts, 'Nationality')}
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                ${fs('tshirt_size', tsOpts, 'T-Shirt size (For reference)')}
+              </div>
+            </div>
+          </div>
+
+          <div style="height:1px;background:#e5e7eb;margin:20px 0"></div>
+
+          <div class="profile-section-title" style="margin-top:0">Bank Details</div>
+          <div class="field-grid-3">
+            ${fs('bank_name', bankOpts, 'Bank Name')}
+            ${fi('ifsc_code', emp.ifsc_code||'', 'IFSC Code')}
+            ${fi('bank_account_name', emp.bank_account_name||'', 'Bank Account Holder Name')}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+            ${fi('bank_account_number', emp.bank_account_number||'', 'Bank Account Number')}
+          </div>
+
+          <div style="height:1px;background:#e5e7eb;margin:20px 0"></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" onclick="cancelPersonalEdit()"
+              style="background:#f59e0b;color:#fff;border:none;border-radius:4px;padding:8px 22px;font-size:13px;cursor:pointer;font-weight:500">Cancel</button>
+            <button type="submit"
+              style="background:#059669;color:#fff;border:none;border-radius:4px;padding:8px 22px;font-size:13px;cursor:pointer;font-weight:500">Submit</button>
+          </div>
+        </form>
     </div>`;
 }
 
 function renderProfileWork(emp) {
   return `
-    <div class="card">
-      <div class="card-body">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div class="profile-section-title">Work Information</div>
-          <span style="font-size:11px;color:#6b7280">Contact HR to update work details</span>
-        </div>
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="profile-section-title">Work Information</div>
+        <span style="font-size:11px;color:#6b7280">Contact HR to update work details</span>
+      </div>
         <div class="field-grid-3">
           ${profileField('Employee ID', emp.employee_number)}
           ${profileField('Official Email', emp.email)}
@@ -2994,17 +3083,15 @@ function renderProfileWork(emp) {
           ${profileField('UAN Number', emp.uan_number)}
           ${profileField('ESIC Number', emp.esic_number)}
         </div>
-      </div>
     </div>`;
 }
 
 function renderProfileContact(emp) {
   return `
-    <div class="card">
-      <div class="card-body">
-        <!-- Present Address -->
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div class="profile-section-title">Present Address</div>
+    <div class="card-body">
+      <!-- Present Address -->
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="profile-section-title">Present Address</div>
           <button class="btn btn-sm btn-primary" onclick="showEditProfileModal('present-address')">Edit</button>
         </div>
         <div class="field-grid-3">
@@ -3041,9 +3128,8 @@ function renderProfileContact(emp) {
           <div class="profile-section-title">Emergency Contacts</div>
           <button class="btn btn-sm btn-primary" onclick="showAddEmergencyContactModal()">+ Add</button>
         </div>
-        <div id="emergency-contacts-list">
-          ${renderEmergencyContacts(emp.emergency_contacts||[])}
-        </div>
+      <div id="emergency-contacts-list">
+        ${renderEmergencyContacts(emp.emergency_contacts||[])}
       </div>
     </div>`;
 }
@@ -3076,8 +3162,7 @@ function renderProfileDocument(emp) {
     { label:'Digital Signature',     field:'digital_sig',    key:'dig_sig' },
   ];
   return `
-    <div class="card">
-      <div class="card-body">
+    <div class="card-body">
         <div class="profile-section-title">Identity Documents</div>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead>
@@ -3103,15 +3188,13 @@ function renderProfileDocument(emp) {
         <div style="color:#9ca3af;font-size:13px">No educational documents uploaded.
           <button class="btn btn-sm btn-primary" style="margin-left:12px" onclick="showUploadDocModal('educational')">+ Upload</button>
         </div>
-      </div>
     </div>`;
 }
 
 function renderProfileEducation(emp) {
   const rows = emp.education_records || [];
   return `
-    <div class="card">
-      <div class="card-body">
+    <div class="card-body">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div class="profile-section-title">Education History</div>
           <button class="btn btn-sm btn-primary" onclick="showAddEducationModal()">+ Add</button>
@@ -3145,15 +3228,13 @@ function renderProfileEducation(emp) {
               </tr>`).join('')}
           </tbody>
         </table>` : `<div style="color:#9ca3af;font-size:13px;padding:8px 0">No education records added. Click &quot;+ Add&quot; to add your qualifications.</div>`}
-      </div>
     </div>`;
 }
 
 function renderProfileFamily(emp) {
   const members = emp.family_members || [];
   return `
-    <div class="card">
-      <div class="card-body">
+    <div class="card-body">
         <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
           <button class="btn btn-primary btn-sm" style="background:#1e3a8a;border-color:#1e3a8a" onclick="showAddFamilyMemberModal()">Add</button>
         </div>
@@ -3176,15 +3257,13 @@ function renderProfileFamily(emp) {
             </div>
           </div>`).join('')
         : `<div style="color:#9ca3af;font-size:13px;padding:8px 0">No family members added. Click &quot;Add&quot; to add family information.</div>`}
-      </div>
     </div>`;
 }
 
 function renderProfilePrevJob(emp) {
   const jobs = emp.previous_employments || [];
   return `
-    <div class="card">
-      <div class="card-body">
+    <div class="card-body">
         ${jobs.length ? jobs.map((j,i)=>`
           <div style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:14px">
             <div class="field-grid-3">
@@ -3207,9 +3286,8 @@ function renderProfilePrevJob(emp) {
             </div>
           </div>`).join('')
         : ''}
-        <div style="display:flex;justify-content:flex-end;margin-top:8px">
-          <button class="btn btn-sm btn-primary" style="background:#22c55e;border-color:#22c55e" onclick="showAddPrevJobModal()">+ Add More</button>
-        </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-sm btn-primary" style="background:#22c55e;border-color:#22c55e" onclick="showAddPrevJobModal()">+ Add More</button>
       </div>
     </div>`;
 }
@@ -3224,15 +3302,22 @@ function triggerPhotoUpload() {
     const res = await fetch(API_BASE + '/employees/me/photo', {
       method:'POST', headers: getAuthHeaders(), body: fd
     });
-    if (res.ok) { toast('Photo updated', 'success'); Pages['profile'](_profileTab); }
-    else toast('Upload failed', 'error');
+    if (res.ok) {
+      toast('Photo updated', 'success');
+      _profileData = await GET('/employees/me', {}, {silent:true}) || _profileData;
+      renderProfilePage(_profileData);
+    } else toast('Upload failed', 'error');
   };
   input.click();
 }
 
 async function removePhoto() {
   const res = await DEL('/employees/me/photo', {}, {silent:true});
-  if (res !== null) { toast('Photo removed', 'success'); Pages['profile'](_profileTab); }
+  if (res !== null) {
+    toast('Photo removed', 'success');
+    _profileData = await GET('/employees/me', {}, {silent:true}) || _profileData;
+    renderProfilePage(_profileData);
+  }
 }
 
 function showEditProfileModal(section) {
@@ -3331,6 +3416,28 @@ async function submitProfileEdit(e, section) {
   const res = await PATCH('/employees/me', data);
   if (res?.id || res?.employee_number || res?.message) {
     closeModal(); toast('Profile updated', 'success'); Pages['profile'](_profileTab);
+  }
+}
+
+function togglePersonalEdit() {
+  _profileEditMode = true;
+  renderProfilePage(_profileData);
+}
+
+function cancelPersonalEdit() {
+  _profileEditMode = false;
+  renderProfilePage(_profileData);
+}
+
+async function submitPersonalInfoForm(e) {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(document.getElementById('personal-info-form')).entries());
+  const res = await PATCH('/employees/me', data);
+  if (res?.id || res?.employee_number || res?.message) {
+    _profileEditMode = false;
+    _profileData = await GET('/employees/me', {}, {silent:true}) || _profileData;
+    toast('Profile updated', 'success');
+    renderProfilePage(_profileData);
   }
 }
 
@@ -4991,60 +5098,11 @@ Pages['benefits'] = async function() {
       </tr>`);
 
   $('page-content').innerHTML = `
-    <div class="page-header"><h1>Benefits & Compensation</h1><div class="page-sub">Your total rewards and company policies</div></div>
-
-    <!-- CTC summary cards -->
-    <div class="stats-grid" style="margin-bottom:20px">
-      <div class="stat-card">
-        <div class="stat-icon blue">💰</div>
-        <div class="stat-label">Annual CTC</div>
-        <div class="stat-value" style="font-size:18px">${salary ? fmtCurrency(salary.ctc_annual) : '—'}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon green">📅</div>
-        <div class="stat-label">Monthly Gross</div>
-        <div class="stat-value" style="font-size:18px">${salary ? fmtCurrency(salary.ctc_monthly) : '—'}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon purple">🌍</div>
-        <div class="stat-label">Currency</div>
-        <div class="stat-value" style="font-size:18px">${salary?.currency || '—'}</div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <!-- Salary breakdown -->
-      <div class="card">
-        <div class="card-header"><div class="card-title">Salary Components</div></div>
-        ${salary ? `
-          <table style="width:100%">
-            <thead><tr style="background:var(--c-bg)">
-              <th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--c-text-2)">Component</th>
-              <th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--c-text-2)">Monthly Amount</th>
-            </tr></thead>
-            <tbody>${compRows.join('') || '<tr><td colspan="2" style="padding:20px;text-align:center;color:var(--c-text-2)">No components configured</td></tr>'}</tbody>
-          </table>` : `
-          <div class="empty-state"><div class="empty-icon">💼</div><h3>No salary on record</h3><p>Contact HR to set up your salary structure</p></div>`}
-      </div>
-
-      <!-- Policies -->
-      <div class="card">
-        <div class="card-header"><div class="card-title">Company Policies</div></div>
-        <div style="padding:4px 0">
-          ${categories.length ? categories.map(cat=>`
-            <div style="padding:12px 16px;border-bottom:1px solid var(--c-border)">
-              <div style="font-size:13px;font-weight:600;margin-bottom:6px">${cat.name}</div>
-              ${cat.documents?.length ? cat.documents.map(doc=>
-                `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-                  <span style="font-size:18px">📄</span>
-                  <span style="font-size:13px">${doc.name}</span>
-                  ${doc.url ? `<a href="${doc.url}" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:auto">View</a>` : '<span style="margin-left:auto;font-size:11px;color:var(--c-text-2)">No file</span>'}
-                </div>`).join('')
-              : '<div style="font-size:12px;color:var(--c-text-2);padding:4px 0">No documents uploaded</div>'}
-            </div>`).join('')
-          : '<div class="empty-state" style="padding:30px"><div class="empty-icon">📋</div><h3>No policies found</h3></div>'}
-        </div>
-      </div>
+    <h2 style="font-size:20px;font-weight:700;color:#059669;margin-bottom:16px">Benefits</h2>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:40px;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">🔒</div>
+      <div style="font-size:15px;font-weight:600;color:#374151">Information Available for HR only</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:8px">Please contact your HR department for benefits information.</div>
     </div>`;
 };
 
@@ -5229,30 +5287,30 @@ Pages['travel'] = async function() {
       <div style="overflow-x:auto">
         <table id="travel-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:800px">
           <thead><tr style="background:#f9fafb">
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Request #</th>
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Purpose</th>
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">From</th>
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">To</th>
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Departure</th>
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Return</th>
-            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Est. Cost</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Travel Id</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Advance</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">From date</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">To date</th>
             <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Status</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Created</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Modified</th>
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Remark</th>
             <th style="padding:8px;text-align:left;border-bottom:2px solid #e5e7eb">Actions</th>
           </tr></thead>
           <tbody id="travel-table-body">
             ${travels.length ? travels.map(t=>`
               <tr style="border-bottom:1px solid #f3f4f6">
-                <td style="padding:8px"><code>${t.request_number||t.id?.slice(0,8)||'-'}</code></td>
-                <td style="padding:8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.purpose||'—'}</td>
-                <td style="padding:8px">${t.from_city||'—'}</td>
-                <td style="padding:8px">${t.to_city||'—'}</td>
+                <td style="padding:8px">${t.request_number||t.id?.slice(0,8)||'-'}</td>
+                <td style="padding:8px">${t.advance_amount ? fmtCurrency(t.advance_amount) : '—'}</td>
                 <td style="padding:8px">${fmtDate(t.departure_date)}</td>
                 <td style="padding:8px">${fmtDate(t.return_date)}</td>
-                <td style="padding:8px">${t.estimated_cost ? fmtCurrency(t.estimated_cost) : '—'}</td>
-                <td style="padding:8px"><span class="badge ${statusBadge(t.status)}">${t.status||'pending'}</span></td>
+                <td style="padding:8px"><span style="background:${t.status==='approved'?'#22c55e':t.status==='rejected'?'#ef4444':'#f59e0b'};color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">${(t.status||'pending').charAt(0).toUpperCase()+(t.status||'pending').slice(1)}</span></td>
+                <td style="padding:8px">${fmtDate(t.created_at)}</td>
+                <td style="padding:8px">${fmtDate(t.updated_at||t.created_at)}</td>
+                <td style="padding:8px">${t.notes||t.remark||'—'}</td>
                 <td style="padding:8px"><button class="btn btn-sm btn-secondary" onclick="viewTravel('${t.id}')">View</button></td>
               </tr>`).join('')
-            : '<tr><td colspan="9" style="padding:20px;text-align:center;color:#9ca3af">No travel requests</td></tr>'}
+            : '<tr><td colspan="9" style="padding:20px;text-align:center;color:#9ca3af">No data available in table</td></tr>'}
           </tbody>
         </table>
       </div>
