@@ -2203,174 +2203,194 @@ Pages['my-leave'] = async function() {
   const checkIn = attendance?.check_in || '--:--:--';
   const checkOut = attendance?.check_out || '--:--:--';
 
-  // Build pie chart data from leave summary
-  const usedLeaves = balList.map(b => b.used || 0).reduce((a,b)=>a+b, 0);
-  const availLeaves = balList.map(b => b.balance || 0).reduce((a,b)=>a+b, 0);
-  const total = usedLeaves + availLeaves || 1;
-  const usedPct = (usedLeaves/total)*100;
-  const circumference = 2*Math.PI*40;
-  const dashArray = `${(circumference*usedPct/100).toFixed(1)} ${circumference.toFixed(1)}`;
-
   const yearOpts = [_leaveYear-1, _leaveYear, _leaveYear+1].map(y=>
     `<option ${y===_leaveYear?'selected':''}>${y}</option>`).join('');
 
+  const PIE_COLORS = ['#4472c4','#1f497d','#ffc000','#70ad47','#ff0000','#7030a0','#ed7d31'];
+
+  function fmtHolidayDate(d) {
+    if (!d) return '-';
+    return new Date(d).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'-');
+  }
+
+  function buildPieSVG(slices) {
+    const active = slices.filter(s => s.value > 0);
+    if (!active.length) return `<svg width="160" height="160" viewBox="-80 -80 160 160"><circle cx="0" cy="0" r="70" fill="#e5e7eb"/></svg>`;
+    const tot = active.reduce((s,d) => s + d.value, 0) || 1;
+    const R = 70;
+    let paths = '';
+    let ang = -Math.PI / 2;
+    active.forEach(d => {
+      const sweep = (d.value / tot) * 2 * Math.PI;
+      const end = ang + sweep;
+      const x1 = R * Math.cos(ang), y1 = R * Math.sin(ang);
+      const x2 = R * Math.cos(end), y2 = R * Math.sin(end);
+      const large = sweep > Math.PI ? 1 : 0;
+      paths += `<path d="M0,0 L${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R},0,${large},1,${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${d.color}"/>`;
+      ang = end;
+    });
+    return `<svg width="160" height="160" viewBox="-80 -80 160 160">${paths}</svg>`;
+  }
+
+  const pieSlices = balList.map((b, i) => ({
+    label: b.leave_type || b.type || 'Leave',
+    value: parseFloat((b.balance || 0).toFixed(1)),
+    color: PIE_COLORS[i % PIE_COLORS.length],
+  }));
+
   $('page-content').innerHTML = `
-    <!-- Top 3 stat cards -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+    <!-- Top 3 sections — unified card with column dividers -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#fff;border:1px solid #dee2e6;border-radius:4px;margin-bottom:0">
       <!-- Last 6 Day Attendance -->
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
+      <div style="padding:14px 16px;border-right:1px solid #dee2e6">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:600;color:#374151">Last 6 Day Attendance</span>
-          <button onclick="Pages['my-leave']()" style="background:none;border:none;cursor:pointer;font-size:14px;color:#6b7280">↻</button>
+          <span style="font-size:13px;font-weight:600;color:#1e3a8a">Last 6 Day Attendance</span>
+          <button onclick="Pages['my-leave']()" style="background:none;border:none;cursor:pointer;font-size:15px;color:#6b7280;line-height:1">↻</button>
         </div>
         <div style="display:flex;gap:4px" id="last6days">
           ${(attendance?.last_6_days||[]).map(d=>`
             <div style="flex:1;text-align:center">
-              <div style="font-size:9px;color:#6b7280">${d.day||''}</div>
-              <div style="width:28px;height:28px;border-radius:50%;background:${d.present?'#22c55e':'#ef4444'};margin:2px auto;display:flex;align-items:center;justify-content:center">
-                <span style="font-size:10px;color:#fff">${d.present?'P':'A'}</span>
+              <div style="font-size:9px;color:#6b7280;margin-bottom:2px">${d.day||''}</div>
+              <div style="width:28px;height:28px;border-radius:50%;background:${d.present?'#22c55e':'#ef4444'};margin:0 auto;display:flex;align-items:center;justify-content:center">
+                <span style="font-size:10px;color:#fff;font-weight:700">${d.present?'P':'A'}</span>
               </div>
-            </div>`).join('') || '<div style="color:#9ca3af;font-size:12px">No data</div>'}
+            </div>`).join('') || ''}
         </div>
       </div>
 
-      <!-- Today's Check In Details -->
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
+      <!-- Today's Check IN Details -->
+      <div style="padding:14px 16px;border-right:1px solid #dee2e6">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:600;color:#374151">Today's Check In Details</span>
-          <button onclick="Pages['my-leave']()" style="background:none;border:none;cursor:pointer;font-size:14px;color:#6b7280">↻</button>
+          <span style="font-size:13px;font-weight:600;color:#1e3a8a">Today's Check IN Details</span>
+          <button onclick="Pages['my-leave']()" style="background:none;border:none;cursor:pointer;font-size:15px;color:#6b7280;line-height:1">↻</button>
         </div>
-        <div style="display:flex;gap:16px">
-          <div>
-            <div style="font-size:10px;color:#6b7280">Check In</div>
-            <div style="font-size:16px;font-weight:700;color:#1e3a8a">${checkIn}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#6b7280">Check Out</div>
-            <div style="font-size:16px;font-weight:700;color:#ef4444">${checkOut}</div>
-          </div>
+        <div style="margin-bottom:8px">
+          <span style="font-size:12px;color:#6b7280">Check IN</span>
+          <span style="font-size:12px;color:#6b7280"> :- </span>
+          <span style="font-size:13px;font-weight:600;color:#374151">${checkIn}</span>
+        </div>
+        <div>
+          <span style="font-size:12px;color:#6b7280">Check OUT</span>
+          <span style="font-size:12px;color:#6b7280"> :- </span>
+          <span style="font-size:13px;font-weight:600;color:#374151">${checkOut}</span>
         </div>
       </div>
 
       <!-- Leave Balance -->
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
+      <div style="padding:14px 16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:600;color:#374151">Leave Balance</span>
-          <button onclick="Pages['my-leave']()" style="background:none;border:none;cursor:pointer;font-size:14px;color:#6b7280">↻</button>
+          <span style="font-size:13px;font-weight:600;color:#1e3a8a">Leave Balance</span>
+          <button onclick="Pages['my-leave']()" style="background:none;border:none;cursor:pointer;font-size:15px;color:#6b7280;line-height:1">↻</button>
         </div>
-        ${balList.slice(0,3).map(b=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        ${balList.map(b=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <span style="font-size:12px;color:#374151">${b.leave_type||b.type||'Leave'}</span>
-            <span style="background:#1e3a8a;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">${Math.floor(b.balance||0)}</span>
+            <span style="background:#1e3a8a;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:3px;min-width:30px;text-align:center">${parseFloat((b.balance||0).toFixed(1))}</span>
           </div>`).join('') || '<div style="font-size:12px;color:#9ca3af">No leave types configured</div>'}
       </div>
     </div>
 
-    <!-- Year selector + Apply button -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:13px;color:#6b7280">Year:</span>
-        <select class="form-control" style="width:100px;padding:4px 8px;font-size:13px" onchange="_leaveYear=parseInt(this.value);Pages['my-leave']()">
-          ${yearOpts}
-        </select>
-      </div>
-      <button class="btn btn-primary" onclick="showApplyLeave(${JSON.stringify(types?.leave_types||[]).replace(/"/g,'&quot;')})">+ Apply Leave</button>
+    <!-- Red separator + year selector row -->
+    <div style="border-top:2px solid #dc3545;background:#fff;border:1px solid #dee2e6;border-top:2px solid #dc3545;padding:8px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:#374151">Year :</span>
+      <select class="form-control" style="width:90px;padding:3px 8px;font-size:13px;display:inline-block" onchange="_leaveYear=parseInt(this.value);Pages['my-leave']()">
+        ${yearOpts}
+      </select>
     </div>
 
-    <!-- Leave Summary + Holiday List side by side -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <!-- Leave Summary pie -->
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
-        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:12px">Leave Summary</div>
-        <div style="text-align:center;font-size:11px;color:#6b7280;margin-bottom:8px">Click the slices to view in details</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:20px">
-          <svg width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="16"/>
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#1e3a8a" stroke-width="16"
-              stroke-dasharray="${dashArray}" stroke-dashoffset="${(circumference*0.25).toFixed(1)}"
-              transform="rotate(-90 50 50)"/>
-          </svg>
-          <div>
-            ${balList.map((b,i)=>{
-              const colors=['#1e3a8a','#22c55e','#f59e0b','#ef4444','#8b5cf6'];
-              return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <div style="width:10px;height:10px;border-radius:50%;background:${colors[i%colors.length]}"></div>
-                <span style="font-size:11px;color:#374151">${b.leave_type||b.type} (${Math.floor(b.balance||0)})</span>
-              </div>`;
-            }).join('') || '<div style="font-size:12px;color:#9ca3af">No data</div>'}
-            ${balList[0]?.settlement ? `<div style="font-size:11px;color:#1e3a8a;margin-top:6px">Paid Leave Settlement: ${balList[0].settlement}</div>` : ''}
+    <!-- Leave Summary + Holiday List -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <!-- Leave Summary pie chart -->
+      <div style="background:#fff;border:1px solid #dee2e6;border-radius:4px;padding:14px">
+        <div style="font-size:13px;font-weight:600;color:#374151;text-align:center;margin-bottom:2px">Leave Summary</div>
+        <div style="text-align:center;font-size:11px;color:#6b7280;margin-bottom:10px">Click the slices to view in details.</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="flex-shrink:0">${buildPieSVG(pieSlices)}</div>
+          <div style="flex:1">
+            ${pieSlices.filter(s=>s.value>0).map(s=>`
+              <div style="margin-bottom:6px">
+                <a href="#" style="font-size:12px;color:#1e3a8a;text-decoration:none" onclick="return false;">${s.label} Entitlement: ${s.value.toFixed(1)}</a>
+              </div>`).join('') || '<div style="font-size:12px;color:#9ca3af">No data</div>'}
           </div>
         </div>
       </div>
 
       <!-- Holiday List -->
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:600;color:#374151">Holiday List</span>
-        </div>
-        <div style="max-height:220px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:#f9fafb">
-              <th style="padding:6px 8px;text-align:left;color:#374151">#</th>
-              <th style="padding:6px 8px;text-align:left;color:#374151">Holiday Name</th>
-              <th style="padding:6px 8px;text-align:left;color:#374151">Holiday Date</th>
-            </tr></thead>
-            <tbody>
-              ${holidayList.length ? holidayList.map((h,i)=>`
-                <tr style="border-bottom:1px solid #f3f4f6">
-                  <td style="padding:6px 8px;color:#6b7280">${i+1}</td>
-                  <td style="padding:6px 8px">${h.name||'-'}</td>
-                  <td style="padding:6px 8px;color:#6b7280">${fmtDate(h.date)}</td>
-                </tr>`).join('')
-              : '<tr><td colspan="3" style="padding:16px;text-align:center;color:#9ca3af">No holidays configured</td></tr>'}
-            </tbody>
-          </table>
-        </div>
+      <div style="background:#fff;border:1px solid #dee2e6;border-radius:4px;padding:14px">
+        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px">Holiday List</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr>
+              <th style="padding:7px 8px;border:1px solid #dee2e6;text-align:center;background:#f8f9fa;color:#374151;font-weight:600;width:36px">#</th>
+              <th style="padding:7px 8px;border:1px solid #dee2e6;text-align:left;background:#f8f9fa;color:#374151;font-weight:600">Holiday Name</th>
+              <th style="padding:7px 8px;border:1px solid #dee2e6;text-align:left;background:#f8f9fa;color:#374151;font-weight:600">Holiday Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${holidayList.length ? holidayList.map((h,i)=>{
+              const isPast = h.date && new Date(h.date) < new Date();
+              const rowColor = isPast ? '#dc3545' : '#374151';
+              return `<tr>
+                <td style="padding:6px 8px;border:1px solid #dee2e6;text-align:center;color:${rowColor}">${i+1}</td>
+                <td style="padding:6px 8px;border:1px solid #dee2e6;color:${rowColor}">${h.name||'-'}</td>
+                <td style="padding:6px 8px;border:1px solid #dee2e6;color:${rowColor}">${fmtHolidayDate(h.date)}</td>
+              </tr>`;
+            }).join('')
+            : '<tr><td colspan="3" style="padding:14px;text-align:center;color:#9ca3af;border:1px solid #dee2e6">No holidays configured</td></tr>'}
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Recent Leaves table -->
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <!-- Recent Leaves -->
+    <div style="background:#fff;border:1px solid #dee2e6;border-radius:4px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:13px;font-weight:600;color:#374151">Recent Leaves</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:12px;color:#6b7280">Year:</span>
-          <select class="form-control" style="width:90px;padding:3px 8px;font-size:12px" onchange="_leaveYear=parseInt(this.value);Pages['my-leave']()">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:#374151">Year:</span>
+          <select class="form-control" style="width:80px;padding:2px 6px;font-size:12px;display:inline-block" onchange="_leaveYear=parseInt(this.value);Pages['my-leave']()">
             ${yearOpts}
           </select>
-          <input type="text" placeholder="Search:" class="form-control" style="width:140px;padding:3px 8px;font-size:12px" oninput="filterLeaveTable(this.value)">
         </div>
       </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <span style="font-size:12px;color:#374151">Search: <input type="text" class="form-control" style="display:inline-block;width:160px;padding:3px 8px;font-size:12px;margin-left:4px" oninput="filterLeaveTable(this.value)"></span>
+      </div>
       <table id="leave-table" style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:#f9fafb">
-          <th style="padding:8px;text-align:left;color:#374151">S. No</th>
-          <th style="padding:8px;text-align:left;color:#374151">Leave</th>
-          <th style="padding:8px;text-align:left;color:#374151">From Date</th>
-          <th style="padding:8px;text-align:left;color:#374151">To Date</th>
-          <th style="padding:8px;text-align:left;color:#374151">No of Days</th>
-          <th style="padding:8px;text-align:left;color:#374151">Requested On</th>
-          <th style="padding:8px;text-align:left;color:#374151">Status</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">S. No &#9650;</th>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">Leave</th>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">From Date</th>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">To Date</th>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">No of Days</th>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">Requested On</th>
+            <th style="padding:9px 8px;border:1px solid #dee2e6;background:#f8f9fa;color:#374151;font-weight:600;text-align:left">Status</th>
+          </tr>
+        </thead>
         <tbody id="leave-table-body">
-          ${appList.length ? appList.map((a,i)=>`
-            <tr style="border-bottom:1px solid #f3f4f6">
-              <td style="padding:8px;color:#6b7280">${i+1}</td>
-              <td style="padding:8px">${a.leave_type||a.leave_type_id||'-'}</td>
-              <td style="padding:8px">${fmtDate(a.from_date)}</td>
-              <td style="padding:8px">${fmtDate(a.to_date)}</td>
-              <td style="padding:8px">${a.days_count||a.days_requested||'-'}</td>
-              <td style="padding:8px">${a.created_at ? fmtDate(a.created_at) + ' ' + (a.created_at.split('T')[1]||'').slice(0,5) : '-'}</td>
-              <td style="padding:8px"><span style="background:${a.status==='approved'?'#22c55e':a.status==='rejected'?'#ef4444':'#f59e0b'};color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">${(a.status||'pending').charAt(0).toUpperCase()+(a.status||'pending').slice(1)}</span></td>
-            </tr>`).join('')
-          : '<tr><td colspan="7" style="padding:20px;text-align:center;color:#9ca3af">No leave applications</td></tr>'}
+          ${appList.length ? appList.map((a,i)=>{
+            const reqOn = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'-') + ' ' + new Date(a.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) : '-';
+            const stBg = a.status==='approved'?'#28a745':a.status==='rejected'?'#dc3545':'#ffc107';
+            return `<tr>
+              <td style="padding:8px;border:1px solid #dee2e6">${i+1}</td>
+              <td style="padding:8px;border:1px solid #dee2e6">${a.leave_type||a.leave_type_id||'-'}</td>
+              <td style="padding:8px;border:1px solid #dee2e6">${fmtDate(a.from_date)}</td>
+              <td style="padding:8px;border:1px solid #dee2e6">${fmtDate(a.to_date)}</td>
+              <td style="padding:8px;border:1px solid #dee2e6">${a.days_count||a.days_requested||'-'}</td>
+              <td style="padding:8px;border:1px solid #dee2e6">${reqOn}</td>
+              <td style="padding:8px;border:1px solid #dee2e6"><span style="background:${stBg};color:#fff;font-size:11px;padding:3px 10px;border-radius:3px;font-weight:600">${(a.status||'pending').charAt(0).toUpperCase()+(a.status||'pending').slice(1)}</span></td>
+            </tr>`;
+          }).join('')
+          : '<tr><td colspan="7" style="padding:20px;text-align:center;color:#9ca3af;border:1px solid #dee2e6">No leave applications</td></tr>'}
         </tbody>
       </table>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:#6b7280">
-        <span>Showing 1 to ${appList.length} of ${appList.length} entries</span>
-        <div style="display:flex;gap:4px">
-          <button style="border:1px solid #d1d5db;background:#fff;border-radius:4px;padding:3px 10px;font-size:12px;cursor:pointer">Previous</button>
-          <button style="border:1px solid #1e3a8a;background:#1e3a8a;color:#fff;border-radius:4px;padding:3px 10px;font-size:12px;cursor:pointer">1</button>
-          <button style="border:1px solid #d1d5db;background:#fff;border-radius:4px;padding:3px 10px;font-size:12px;cursor:pointer">Next</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:#374151">
+        <span>Showing ${appList.length ? 1 : 0} to ${appList.length} of ${appList.length} entries</span>
+        <div style="display:flex;gap:2px">
+          <button style="border:1px solid #dee2e6;background:#fff;border-radius:3px;padding:4px 10px;font-size:12px;cursor:pointer;color:#374151">Previous</button>
+          <button style="border:1px solid #1e3a8a;background:#1e3a8a;color:#fff;border-radius:3px;padding:4px 10px;font-size:12px;cursor:pointer">1</button>
+          <button style="border:1px solid #dee2e6;background:#fff;border-radius:3px;padding:4px 10px;font-size:12px;cursor:pointer;color:#374151">Next</button>
         </div>
       </div>
     </div>`;
