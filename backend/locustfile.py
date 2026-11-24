@@ -10,7 +10,7 @@ Usage:
     locust -f locustfile.py --host=http://localhost:5000 \\
            --headless -u 100 -r 10 --run-time 60s
 
-Seeded credentials (after running seed_demo.py):
+DEMO ONLY seeded credentials (after running seed_demo.py; never point this at production):
     Tenant slug : demo
     HR Admin    : EMP001 / Demo@1234
     Employee    : EMP005 / Demo@1234

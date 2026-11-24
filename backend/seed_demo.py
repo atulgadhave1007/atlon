@@ -1,6 +1,11 @@
 """
-Seed demo data for development/demo environments.
-Run: python seed_demo.py
+DEMO ONLY. Seeds a fake company with sample employees and activity data.
+
+    python seed_demo.py
+
+Every account created here shares the publicly documented password
+"Demo@1234". Never run this against a database real people use.
+The script refuses to run when FLASK_ENV=production.
 """
 import os
 import sys
@@ -9,8 +14,16 @@ import uuid
 from datetime import date, time, datetime, timedelta, timezone
 from decimal import Decimal
 
+from dotenv import load_dotenv
+
 sys.path.insert(0, os.path.dirname(__file__))
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+if os.environ.get('FLASK_ENV', '').strip().lower() == 'production':
+    sys.exit('seed_demo.py is DEMO ONLY and refuses to run with FLASK_ENV=production.')
 os.environ.setdefault('FLASK_ENV', 'development')
+
+# Publicly documented demo password. DEMO ONLY: do not reuse anywhere.
+DEMO_PASSWORD = 'Demo@1234'
 
 from app import create_app
 from app.extensions import db
@@ -202,7 +215,7 @@ def seed():
                 continue
 
             emp_num = f'EMP{i + 1:03d}'
-            password_hash = hash_password('Demo@1234')
+            password_hash = hash_password(DEMO_PASSWORD)
             dob = date(1990 + (i % 8), (i % 12) + 1, (i % 28) + 1)
             joining = date(2022, (i % 12) + 1, (i % 28) + 1)
 
@@ -277,7 +290,7 @@ def seed():
                     db.session.add(bal)
 
             created_employees.append(emp)
-            print(f'  Created employee: {name} ({email}) — temp password: Demo@1234')
+            print(f'  Created employee: {name} ({email}) — DEMO password: {DEMO_PASSWORD}')
 
         db.session.commit()
         print(f'\nBase seeding complete — seeding activity data...')
@@ -286,11 +299,13 @@ def seed():
         print(f'  Tenant slug : demo')
         print(f'  Employees   : {len(created_employees)}')
         print(f'  Login URL   : http://localhost:5000')
-        print(f'  Credentials (HR Admin)  : EMP001 / Demo@1234  (Arjun Mehta)')
-        print(f'  Credentials (Employee)  : EMP005 / Demo@1234  (Amit Patel)')
-        print(f'  Credentials (Manager)   : EMP003 / Demo@1234  (Rahul Gupta)')
-        print(f'  Super Admin             : admin@atlon.in / AtlonAdmin@123')
-        print(f'  Company ID for login    : demo')
+        print(f'  ---- DEMO ONLY credentials (publicly known, do not use in production) ----')
+        print(f'  HR Admin  : EMP001 / {DEMO_PASSWORD}  (Arjun Mehta)')
+        print(f'  Manager   : EMP003 / {DEMO_PASSWORD}  (Rahul Gupta)')
+        print(f'  Employee  : EMP005 / {DEMO_PASSWORD}  (Amit Patel)')
+        print(f'  Company ID for login : demo')
+        print(f'  Super admin is NOT created by this script; it comes from')
+        print(f'  SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD in backend/.env.')
 
 
 def seed_activity(app, tenant, employees, shift, leave_types):
