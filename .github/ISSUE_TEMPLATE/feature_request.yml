@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest a new feature or an improvement to an existing module
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what stops you today? Who is affected (HR admin, payroll admin, manager, employee)?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: compliance
+    attributes:
+      label: Statutory / compliance reference
+      description: For payroll, tax or labour-law features, link the act, rule, circular or official format.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to work on this myself

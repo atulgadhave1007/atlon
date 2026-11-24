@@ -1,6 +1,7 @@
 from flask import Blueprint, request, g
 from app.extensions import db
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 from app.models.expense import Asset, AssetCategory, AssetAssignment
 from datetime import datetime
 
@@ -28,6 +29,9 @@ def list_assets():
 @require_auth(roles=['hr_admin'])
 def create_asset():
     d = request.get_json()
+    _ref_err = reject_foreign_refs(d, {"category_id": "AssetCategory"})
+    if _ref_err:
+        return _ref_err
     count = Asset.query.filter_by(tenant_id=g.tenant_id).count()
     a = Asset(
         tenant_id=g.tenant_id,
@@ -59,6 +63,9 @@ def assign_asset(asset_id):
         return {'error': 'Asset already assigned'}, 400
 
     d = request.get_json()
+    _ref_err = reject_foreign_refs(d, {"employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     assignment = AssetAssignment(
         tenant_id=g.tenant_id,
         asset_id=str(asset_id),

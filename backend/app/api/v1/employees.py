@@ -11,6 +11,7 @@ from app.models import (
     EmployeeBankDetail, EmployeeLifecycleEvent, EmployeeStatus, Role
 )
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 from app.utils.security import sanitize_string, is_valid_email, validate_password
 
 employees_bp = Blueprint("employees", __name__)
@@ -223,6 +224,9 @@ def create_employee():
     if pw_errors:
         password = f"Welcome@{datetime.now().year}!"
 
+    _ref_err = reject_foreign_refs(validated, {"department_id": "Department", "designation_id": "Designation", "branch_id": "Branch", "reporting_manager_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     emp = Employee(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,
@@ -685,6 +689,9 @@ def update_employee(emp_id):
     ]
 
     fields_to_update = employee_editable if not is_hr else employee_editable + hr_fields
+    _ref_err = reject_foreign_refs(data, {"department_id": "Department", "designation_id": "Designation", "branch_id": "Branch", "reporting_manager_id": "Employee"})
+    if _ref_err:
+        return _ref_err
 
     _DATE_FIELDS = {"date_of_joining", "date_of_birth", "date_of_confirmation", "probation_end_date", "passport_expiry"}
     _ENUM_FIELDS_HR = {

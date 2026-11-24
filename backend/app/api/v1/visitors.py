@@ -1,6 +1,7 @@
 from flask import Blueprint, request, g
 from app.extensions import db
 from app.utils.auth import require_auth
+from app.utils.tenant_refs import reject_foreign_refs
 from app.models.asset import Visitor
 from datetime import datetime, date
 
@@ -28,6 +29,9 @@ def list_visitors():
 @require_auth()
 def register_visitor():
     d = request.get_json()
+    _ref_err = reject_foreign_refs(d, {"host_employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     v = Visitor(
         tenant_id=g.tenant_id,
         visitor_number=_next_number(g.tenant_id),

@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from app.extensions import db
 from app.models import Course, CourseEnrollment, ModuleProgress, Survey, SurveyResponse, EnrollmentStatus
 from app.utils.auth import require_auth
+from app.utils.tenant_refs import reject_foreign_refs
 
 training_bp = Blueprint("training", __name__)
 
@@ -49,6 +50,10 @@ def enroll(course_id):
     if g.role == "employee":
         employee_id = str(g.employee.id)
 
+    Course.query.filter_by(id=course_id, tenant_id=g.tenant_id, is_deleted=False).first_or_404()
+    _ref_err = reject_foreign_refs({"employee_id": employee_id}, {"employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     existing = CourseEnrollment.query.filter_by(
         tenant_id=g.tenant_id, course_id=course_id, employee_id=employee_id, is_deleted=False
     ).first()

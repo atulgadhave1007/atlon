@@ -9,6 +9,7 @@ from app.models import (
     LeaveApplicationStatus, PayrollStatus, ComponentType
 )
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 from app.services.payroll_engine import IndiaPayrollEngine, UAEPayrollEngine, USPayrollEngine
 
 payroll_bp = Blueprint("payroll", __name__)
@@ -855,6 +856,9 @@ def request_advance():
     if g.role == "employee":
         emp_id = str(g.employee.id)
 
+    _ref_err = reject_foreign_refs({"employee_id": emp_id}, {"employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     advance = SalaryAdvance(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,

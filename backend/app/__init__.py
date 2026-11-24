@@ -1,7 +1,10 @@
+import logging
 import os
+import secrets
+import sys
 import structlog
 from flask import Flask, jsonify, send_from_directory
-from app.config import get_config
+from app.config import get_config, ProductionConfig, validate_production_config
 from app.extensions import db, migrate, cors, limiter
 from app.middleware.security import add_security_headers, assign_request_id
 from app.middleware.tenant import resolve_tenant
@@ -18,6 +21,15 @@ def create_app(config_class=None):
     # ── Configuration ─────────────────────────────────────────────────────────
     cfg = config_class or get_config()
     app.config.from_object(cfg)
+    app.config["IS_PRODUCTION"] = isinstance(cfg, type) and issubclass(cfg, ProductionConfig)
+
+    # Refuse to boot production with default secrets or wildcard CORS.
+    if app.config["IS_PRODUCTION"]:
+        problems = validate_production_config(app.config)
+        if problems:
+            raise RuntimeError(
+                "Refusing to start in production:\n  - " + "\n  - ".join(problems)
+            )
 
     # ── Logging ───────────────────────────────────────────────────────────────
     structlog.configure(
@@ -109,12 +121,22 @@ def create_app(config_class=None):
             return jsonify({"status": "not_ready", "error": str(e)}), 503
 
     # ── DB Init ───────────────────────────────────────────────────────────────
+    _ensure_sqlite_dir(app.config.get("SQLALCHEMY_DATABASE_URI", ""))
     with app.app_context():
         db.create_all()
         _apply_sqlite_migrations(app)
         _seed_initial_data(app)
 
     return app
+
+
+def _ensure_sqlite_dir(uri: str):
+    """Create the parent folder of a file-based SQLite DB (data/ is git-ignored,
+    so it does not exist in a fresh clone)."""
+    prefix = "sqlite:///"
+    if uri.startswith(prefix) and ":memory:" not in uri:
+        folder = os.path.dirname(os.path.abspath(uri[len(prefix):]))
+        os.makedirs(folder, exist_ok=True)
 
 
 def _register_blueprints(app: Flask):
@@ -294,8 +316,7 @@ def _apply_sqlite_migrations(app: Flask):
 
 
 def _seed_initial_data(app: Flask):
-    from app.models import Plan, SuperAdmin, PlanTier
-    import bcrypt
+    from app.models import Plan, PlanTier
 
     if Plan.query.count() == 0:
         plans = [
@@ -325,14 +346,80 @@ def _seed_initial_data(app: Flask):
         for p in plans:
             db.session.add(p)
 
-    if SuperAdmin.query.count() == 0:
-        email = app.config.get("SUPER_ADMIN_EMAIL", "admin@atlon.in")
-        password = app.config.get("SUPER_ADMIN_PASSWORD", "AtlonAdmin@123")
-        pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(12)).decode()
-        sa = SuperAdmin(email=email, password_hash=pw_hash, name="Super Admin")
-        db.session.add(sa)
-
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
+
+    _bootstrap_super_admin(app)
+
+
+def _bootstrap_super_admin(app: Flask):
+    """Create the first super admin from SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD.
+
+    - Does nothing if any super admin already exists.
+    - No email set: logs a warning and creates nothing.
+    - No password set: in production (or tests) logs a warning and creates nothing;
+      in development generates a random password and prints it ONCE to stdout.
+    - Password set but too weak for the password policy: logs a warning, creates nothing.
+    The password itself is never written to the log.
+
+    Returns the created SuperAdmin, or None.
+    """
+    from app.models import SuperAdmin
+    from app.utils.security import hash_password, validate_password
+
+    log = logging.getLogger("atlon.bootstrap")
+    if SuperAdmin.query.count() > 0:
+        return None
+
+    email = (app.config.get("SUPER_ADMIN_EMAIL") or "").strip().lower()
+    password = app.config.get("SUPER_ADMIN_PASSWORD") or ""
+    if not email:
+        log.warning(
+            "No super admin exists and SUPER_ADMIN_EMAIL is not set; none was created. "
+            "Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD, then restart."
+        )
+        return None
+
+    generated = False
+    if not password:
+        if app.config.get("IS_PRODUCTION") or app.config.get("TESTING"):
+            log.warning(
+                "No super admin exists and SUPER_ADMIN_PASSWORD is not set; none was created. "
+                "Set SUPER_ADMIN_PASSWORD, then restart."
+            )
+            return None
+        password = secrets.token_urlsafe(18)
+        generated = True
+    else:
+        problems = validate_password(password)
+        if problems:
+            log.warning(
+                "SUPER_ADMIN_PASSWORD does not meet the password policy (%s); "
+                "no super admin was created.", "; ".join(problems)
+            )
+            return None
+
+    sa = SuperAdmin(email=email, password_hash=hash_password(password), name="Super Admin")
+    db.session.add(sa)
+    try:
+        db.session.commit()
+    except Exception:
+        # Another worker created it first (unique email); nothing to do.
+        db.session.rollback()
+        return None
+
+    if generated:
+        # Printed once, at creation time only. It is not stored anywhere in clear text.
+        print(
+            "\n" + "=" * 70
+            + f"\n  Super admin created: {email}"
+            + f"\n  Generated password : {password}"
+            + "\n  This is shown ONCE. Log in and change it now."
+            + "\n" + "=" * 70 + "\n",
+            file=sys.stdout, flush=True,
+        )
+    else:
+        log.info("Super admin %s created from environment variables.", email)
+    return sa

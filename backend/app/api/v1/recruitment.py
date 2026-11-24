@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, g
 from app.extensions import db
 from app.models import JobPosting, JobApplication, Interview, OfferLetter, JobStatus, ApplicationStatus
 from app.utils.auth import require_auth
+from app.utils.tenant_refs import reject_foreign_refs
 from app.utils.security import sanitize_string
 
 recruitment_bp = Blueprint("recruitment", __name__)
@@ -26,6 +27,9 @@ def create_job():
     data = request.get_json(silent=True) or {}
     import secrets, string
     code = "JOB" + "".join(secrets.choice(string.digits) for _ in range(5))
+    _ref_err = reject_foreign_refs(data, {"department_id": "Department", "designation_id": "Designation", "branch_id": "Branch", "hiring_manager_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     job = JobPosting(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,

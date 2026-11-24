@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, g
 from app.extensions import db
 from app.models import ExitRequest, ExitClearance, FnFSettlement, ExitType, ExitStatus, Employee
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 
 exit_bp = Blueprint("exit", __name__)
 
@@ -31,6 +32,9 @@ def initiate_exit():
         id=emp_id, tenant_id=g.tenant_id, is_deleted=False
     ).first_or_404()
 
+    _ref_err = reject_foreign_refs(data, {"handover_employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     exit_req = ExitRequest(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,

@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Atlon HRMS is an enterprise multi-tenant SaaS HRMS competing with Keka and Darwinbox. It supports India, UAE, and US payroll compliance.
+Atlon HRMS is an open-source (AGPL-3.0), self-hostable, multi-tenant HRMS. It supports India statutory payroll plus basic UAE and US payroll. Verified module status, known bugs and the roadmap live in `PROJECT_STATUS.md`.
 
 ## Repository Layout
 ```
@@ -17,13 +17,13 @@ atlon hrms/
       utils/           # auth.py (require_auth, log_action), security.py (sanitize_string)
       extensions.py    # db, migrate, cors, limiter
       __init__.py      # create_app(), _register_blueprints()
-    seed_demo.py       # Demo tenant: slug=demo, EMP001/Demo@1234 (HR), EMP005/Demo@1234 (Employee)
+    seed_demo.py       # DEMO ONLY seed: tenant slug=demo (refuses to run in production)
     tests/             # pytest suite lives here (inside backend/)
     requirements.txt
     run.py
   frontend/
     public/
-      index.html       # ~6500-line Vanilla JS SPA (exact Stratemis UI)
+      index.html       # ~7600-line Vanilla JS SPA (tile-based ESS dashboard)
       landing.html     # Marketing page
 ```
 
@@ -39,7 +39,8 @@ atlon hrms/
 # Run the app
 cd backend
 pip install -r requirements.txt
-python seed_demo.py          # first time only — creates demo tenant + employees
+cp .env.example .env         # placeholders only; set SUPER_ADMIN_EMAIL (password is generated once in dev if empty)
+python seed_demo.py          # optional, DEMO ONLY — creates demo tenant + employees
 python run.py                # http://localhost:5000 (serves frontend too)
 
 # Run all tests
@@ -57,20 +58,22 @@ flask db migrate -m "description"
 flask db upgrade
 
 # Celery worker (for background tasks)
-celery -A app.celery_app worker --loglevel=info
+celery -A app.tasks.celery_app worker --loglevel=info
 
 # Celery beat (for scheduled tasks: daily absent marking, leave accrual, etc.)
-celery -A app.celery_app beat --loglevel=info
+celery -A app.tasks.celery_app beat --loglevel=info
 ```
 
-## Seed Credentials (after running seed_demo.py)
+## Demo Credentials (DEMO ONLY, after running seed_demo.py)
 ```
 Company ID : demo
 HR Admin   : EMP001 / Demo@1234
 Manager    : EMP003 / Demo@1234
 Employee   : EMP005 / Demo@1234
-Super Admin: admin@atlon.in / AtlonAdmin@123 (auto-created on startup)
 ```
+These are publicly known. Never seed a database real people use.
+There is **no default super admin**: it is created on first start from
+`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` (see Startup Behavior). Never hard-code credentials.
 
 ## Critical Rules — Always Follow
 
@@ -78,6 +81,8 @@ Super Admin: admin@atlon.in / AtlonAdmin@123 (auto-created on startup)
 - Every DB query MUST include `.filter_by(tenant_id=g.tenant_id)`
 - Every route MUST have `@require_auth()` decorator
 - `g.tenant_id`, `g.employee`, `g.role` are set by middleware — use them
+- IDs that arrive in a request body (`department_id`, `employee_id`, `reviewer_ids`...) must be checked
+  with `reject_foreign_refs(data, {"field": "ModelName"})` from `app/utils/tenant_refs.py` before storing
 
 ### 2. Route Ordering
 - Specific routes MUST be defined BEFORE wildcard `/<id>` routes in Flask blueprints
@@ -156,7 +161,10 @@ const items = data?.items || [];
 - **Profile page data source**: Always load profile from `GET /employees/me` (50+ fields), not `GET /auth/me` (9 fields).
 
 ## Startup Behavior
-`create_app()` auto-runs `_apply_sqlite_migrations()` on every startup to patch SQLite schema drift (column nullability fixes that `db.create_all()` won't apply to existing tables). This is a no-op on PostgreSQL. It also auto-seeds billing plans and a super admin if the DB is empty.
+`create_app()` auto-runs `_apply_sqlite_migrations()` on every startup to patch SQLite schema drift (column nullability fixes that `db.create_all()` won't apply to existing tables). This is a no-op on PostgreSQL. It also auto-seeds billing plans and bootstraps the first super admin
+(`_bootstrap_super_admin`): from `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`; with no password, development
+generates one and prints it once, production creates none. In production (`FLASK_ENV=production`) the app
+refuses to start with placeholder/short `SECRET_KEY`/`JWT_SECRET` or wildcard `CORS_ORIGINS`.
 
 ## Agents Available
 Invoke with `@agent_name` in your prompt:

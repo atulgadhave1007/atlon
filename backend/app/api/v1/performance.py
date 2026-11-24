@@ -6,6 +6,7 @@ from app.models import (
     AppraisalCycleStatus, GoalStatus, Employee
 )
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 
 performance_bp = Blueprint("performance", __name__)
 
@@ -258,6 +259,9 @@ def list_goals():
 @require_auth(roles=["employee", "manager", "hr_admin"])
 def create_goal():
     data = request.get_json(silent=True) or {}
+    _ref_err = reject_foreign_refs(data, {"cycle_id": "AppraisalCycle", "employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     goal = Goal(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,
@@ -304,6 +308,9 @@ def request_feedback():
     reviewer_ids = data.get("reviewer_ids", [])
     subject_id = data.get("subject_employee_id") or str(g.employee.id)
 
+    _ref_err = reject_foreign_refs(data, {"cycle_id": "AppraisalCycle", "subject_employee_id": "Employee", "reviewer_ids": "Employee"})
+    if _ref_err:
+        return _ref_err
     created = []
     for rid in reviewer_ids:
         fb = PeerFeedback(
@@ -382,6 +389,9 @@ def list_objectives():
 @require_auth()
 def create_objective():
     data = request.get_json(silent=True) or {}
+    _ref_err = reject_foreign_refs(data, {"owner_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     obj = OKRObjective(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,

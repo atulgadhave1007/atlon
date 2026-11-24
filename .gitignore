@@ -16,6 +16,8 @@ env/
 
 # Environment / secrets
 .env
+.env.*
+!.env.example
 *.env.local
 
 # Database files
@@ -23,6 +25,7 @@ data/
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
 
 # Uploaded files
 backend/uploads/
@@ -44,7 +47,17 @@ Thumbs.db
 # Node
 node_modules/
 
+.claude/settings.local.json
+
+# Test / coverage output
+.coverage
+htmlcov/
+
 # Cache
 .cache/
 .pytest_cache/
 .mypy_cache/
+
+# Local reference material (third-party screenshots with personal data; never commit)
+ui-designs/
+profile_tabs_v3.png

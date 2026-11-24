@@ -65,8 +65,10 @@ class Config:
     AWS_REGION = os.environ.get("AWS_REGION", "ap-south-1")
 
     # ── Super Admin ───────────────────────────────────────────────────────────
-    SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "admin@atlon.in")
-    SUPER_ADMIN_PASSWORD = os.environ.get("SUPER_ADMIN_PASSWORD", "AtlonAdmin@123")
+    # No defaults: the first super admin is bootstrapped from these env vars only.
+    # See _bootstrap_super_admin() in app/__init__.py.
+    SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "").strip().lower()
+    SUPER_ADMIN_PASSWORD = os.environ.get("SUPER_ADMIN_PASSWORD", "")
 
     # ── Billing ───────────────────────────────────────────────────────────────
     STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
@@ -108,7 +110,9 @@ class Config:
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5000")
 
     # ── CORS ──────────────────────────────────────────────────────────────────
-    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+    # Comma-separated list. "*" is allowed in development only; production
+    # refuses to start without an explicit list (see validate_production_config).
+    CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
 
 
 class DevelopmentConfig(Config):
@@ -127,6 +131,43 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_ECHO = False
     PASSWORD_EXPIRY_DAYS = 90
+    CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+
+
+# Values that ship in this repo's code or .env.example and must never run in production.
+KNOWN_WEAK_SECRETS = {
+    "change-me-in-production-64-chars-min",
+    "change-me-jwt-secret-64-chars-min",
+    "generate-64-char-random-string-here",
+    "generate-another-64-char-random-string-here",
+    "replace-with-a-long-random-value",
+    "replace-with-a-different-long-random-value",
+    "secret", "changeme", "dev", "development", "test",
+}
+# Any value containing one of these markers is treated as a placeholder.
+PLACEHOLDER_MARKERS = ("change-me", "changeme", "replace-with", "generate-")
+MIN_SECRET_LENGTH = 32
+
+
+def validate_production_config(config) -> list:
+    """Return a list of problems that make ``config`` unsafe for production.
+
+    ``config`` is a mapping (e.g. ``app.config``). An empty list means it is OK.
+    """
+    problems = []
+    for key in ("SECRET_KEY", "JWT_SECRET"):
+        value = config.get(key) or ""
+        is_placeholder = any(m in value.lower() for m in PLACEHOLDER_MARKERS)
+        if value in KNOWN_WEAK_SECRETS or is_placeholder or len(value) < MIN_SECRET_LENGTH:
+            problems.append(
+                f"{key} is unset, a known default, or shorter than {MIN_SECRET_LENGTH} characters"
+            )
+    if config.get("SECRET_KEY") and config.get("SECRET_KEY") == config.get("JWT_SECRET"):
+        problems.append("SECRET_KEY and JWT_SECRET must be different values")
+    origins = config.get("CORS_ORIGINS") or []
+    if not origins or "*" in origins:
+        problems.append("CORS_ORIGINS must list explicit origins (no '*') in production")
+    return problems
 
 
 class TestingConfig(Config):

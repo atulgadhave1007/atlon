@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, g
 from app.extensions import db
 from app.models import Employee, EmployeeLifecycleEvent, EmployeeStatus
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 
 lifecycle_bp = Blueprint("lifecycle", __name__)
 
@@ -80,6 +81,9 @@ def transfer_employee(emp_id):
     }
     new_values = {}
 
+    _ref_err = reject_foreign_refs(data, {"department_id": "Department", "branch_id": "Branch", "reporting_manager_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     if data.get("department_id"):
         emp.department_id = data["department_id"]
         new_values["department_id"] = data["department_id"]
@@ -122,6 +126,9 @@ def promote_employee(emp_id):
     old_desig_id = str(emp.designation_id) if emp.designation_id else None
     new_desig_id = data.get("designation_id")
 
+    _ref_err = reject_foreign_refs(data, {"designation_id": "Designation"})
+    if _ref_err:
+        return _ref_err
     if new_desig_id:
         emp.designation_id = new_desig_id
 

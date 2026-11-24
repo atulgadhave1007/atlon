@@ -7,6 +7,7 @@ from app.models import (
     Asset, AssetCategory, AssetAssignment, ExpenseStatus
 )
 from app.utils.auth import require_auth
+from app.utils.tenant_refs import reject_foreign_refs
 from app.utils.security import sanitize_string
 import secrets, string
 
@@ -73,6 +74,10 @@ def create_claim():
     if not items_data:
         return jsonify({"error": "At least one expense item is required"}), 400
 
+    for _item in items_data:
+        _ref_err = reject_foreign_refs(_item, {"category_id": "ExpenseCategory"})
+        if _ref_err:
+            return _ref_err
     total = sum(float(i.get("amount", 0)) for i in items_data)
 
     claim = ExpenseClaim(
@@ -159,6 +164,9 @@ def list_assets():
 @require_auth(roles=["hr_admin"])
 def create_asset():
     data = request.get_json(silent=True) or {}
+    _ref_err = reject_foreign_refs(data, {"category_id": "AssetCategory", "branch_id": "Branch"})
+    if _ref_err:
+        return _ref_err
     asset = Asset(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,
@@ -188,6 +196,9 @@ def assign_asset(asset_id):
     if not employee_id:
         return jsonify({"error": "employee_id is required"}), 400
 
+    _ref_err = reject_foreign_refs(data, {"employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     asset.assigned_to_id = employee_id
     asset.assigned_at = datetime.now(timezone.utc)
     asset.status = "assigned"
