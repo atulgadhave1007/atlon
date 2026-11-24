@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, g, current_app
 from app.extensions import db
 from app.models import BiometricDevice, BiometricLog, Employee, Attendance, AttendanceStatus, AttendanceSource
 from app.utils.auth import require_auth
+from app.utils.tenant_refs import reject_foreign_refs
 
 biometric_bp = Blueprint("biometric", __name__)
 
@@ -160,6 +161,9 @@ def get_config():
 @require_auth(roles=["hr_admin"])
 def register_device():
     data = request.get_json(silent=True) or {}
+    _ref_err = reject_foreign_refs(data, {"branch_id": "Branch"})
+    if _ref_err:
+        return _ref_err
     device = BiometricDevice(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,

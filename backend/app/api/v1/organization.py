@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from app.extensions import db
 from app.models import Department, Designation, Branch, CostCenter
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 from app.utils.security import sanitize_string
 
 org_bp = Blueprint("organization", __name__)
@@ -26,6 +27,9 @@ def create_department():
     name = sanitize_string(data.get("name", ""), 200)
     if not name:
         return jsonify({"error": "Name is required"}), 400
+    _ref_err = reject_foreign_refs(data, {"parent_id": "Department"})
+    if _ref_err:
+        return _ref_err
     dept = Department(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,
@@ -45,6 +49,9 @@ def create_department():
 def update_department(dept_id):
     dept = Department.query.filter_by(id=dept_id, tenant_id=g.tenant_id, is_deleted=False).first_or_404()
     data = request.get_json(silent=True) or {}
+    _ref_err = reject_foreign_refs(data, {"parent_id": "Department", "head_employee_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     for field in ["name", "code", "description", "parent_id", "head_employee_id", "is_active"]:
         if field in data:
             setattr(dept, field, data[field])
@@ -79,6 +86,9 @@ def create_designation():
     name = sanitize_string(data.get("name", ""), 200)
     if not name:
         return jsonify({"error": "Name is required"}), 400
+    _ref_err = reject_foreign_refs(data, {"department_id": "Department"})
+    if _ref_err:
+        return _ref_err
     desig = Designation(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, g
 from app.extensions import db
 from app.utils.auth import require_auth, log_action
+from app.utils.tenant_refs import reject_foreign_refs
 from app.models.performance import OKRObjective, OKRKeyResult, OKRCheckIn
 
 bp = Blueprint('okr', __name__)
@@ -31,6 +32,9 @@ def list_objectives():
 def create_objective():
     d = request.get_json()
     from datetime import date
+    _ref_err = reject_foreign_refs(d, {"owner_id": "Employee", "department_id": "Department", "parent_id": "OKRObjective"})
+    if _ref_err:
+        return _ref_err
     obj = OKRObjective(
         tenant_id=g.tenant_id,
         title=d['title'],

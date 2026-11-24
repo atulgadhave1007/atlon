@@ -7,6 +7,7 @@ from app.models import (
     TicketPriority, TicketStatus, Employee
 )
 from app.utils.auth import require_auth
+from app.utils.tenant_refs import reject_foreign_refs
 from app.utils.security import sanitize_string
 
 helpdesk_bp = Blueprint("helpdesk", __name__)
@@ -101,6 +102,9 @@ def create_ticket():
         val = sanitize_string(data.get(key, ""), 100)
         if val:
             extra_tags.append(f"{key}:{val}")
+    _ref_err = reject_foreign_refs(data, {"category_id": "TicketCategory"})
+    if _ref_err:
+        return _ref_err
     ticket = HelpTicket(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,
@@ -115,7 +119,9 @@ def create_ticket():
         attachments=data.get("attachments", []),
     )
 
-    cat = TicketCategory.query.get(data.get("category_id")) if data.get("category_id") else None
+    cat = TicketCategory.query.filter_by(
+        id=data.get("category_id"), tenant_id=g.tenant_id, is_deleted=False
+    ).first() if data.get("category_id") else None
     if cat and cat.default_assignee_id:
         ticket.assigned_to_id = cat.default_assignee_id
         from datetime import timedelta
@@ -132,6 +138,9 @@ def update_ticket(ticket_id):
     ticket = HelpTicket.query.filter_by(
         id=ticket_id, tenant_id=g.tenant_id, is_deleted=False
     ).first_or_404()
+    _ref_err = reject_foreign_refs((request.get_json(silent=True) or {}), {"assigned_to_id": "Employee"})
+    if _ref_err:
+        return _ref_err
     if g.role == "employee" and str(ticket.employee_id) != str(g.employee.id):
         return jsonify({"error": "Access denied"}), 403
     data = request.get_json(silent=True) or {}
@@ -407,6 +416,9 @@ def list_visitors():
 @require_auth()
 def create_visitor():
     data = request.get_json(silent=True) or {}
+    _ref_err = reject_foreign_refs(data, {"host_employee_id": "Employee", "branch_id": "Branch"})
+    if _ref_err:
+        return _ref_err
     visitor = VisitorPass(
         id=uuid.uuid4(),
         tenant_id=g.tenant_id,
