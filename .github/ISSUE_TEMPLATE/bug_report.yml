@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in Atlon is broken or behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issue?** Don't file it here. Follow SECURITY.md and report privately.
+        Use only demo data. Don't paste real employee names, salaries, PAN/Aadhaar or bank details.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Module
+      options:
+        - Auth / login
+        - Employees / organization
+        - Attendance / biometric
+        - Leave
+        - Payroll: India
+        - Payroll: UAE
+        - Payroll: US
+        - Performance / OKR
+        - Recruitment / training / surveys
+        - Helpdesk / expenses / assets / visitors / timesheets
+        - Exit / lifecycle / letters
+        - Reports / notifications
+        - Super admin / billing
+        - Deployment (Docker, nginx, Celery)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the endpoint or page, and the HTTP status or error message if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: For payroll and statutory bugs, show the expected figures and the rule or source behind them.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. python seed_demo.py
+        2. Log in as EMP001 (company "demo")
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit / branch
+      placeholder: e.g. master @ abc1234
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      options:
+        - Local (SQLite)
+        - Docker Compose (PostgreSQL)
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      render: shell
