@@ -80,6 +80,8 @@ def require_auth(roles: Optional[list] = None):
 
             if payload.get("super"):
                 g.super_admin = SuperAdmin.query.get(payload["sub"])
+                if not g.super_admin or not g.super_admin.is_active or g.super_admin.is_deleted:
+                    return {"error": "User not found or inactive"}, 401
                 g.employee = None
                 g.tenant_id = None
                 g.role = "super_admin"
