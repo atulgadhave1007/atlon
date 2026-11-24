@@ -121,12 +121,22 @@ def create_app(config_class=None):
             return jsonify({"status": "not_ready", "error": str(e)}), 503
 
     # ── DB Init ───────────────────────────────────────────────────────────────
+    _ensure_sqlite_dir(app.config.get("SQLALCHEMY_DATABASE_URI", ""))
     with app.app_context():
         db.create_all()
         _apply_sqlite_migrations(app)
         _seed_initial_data(app)
 
     return app
+
+
+def _ensure_sqlite_dir(uri: str):
+    """Create the parent folder of a file-based SQLite DB (data/ is git-ignored,
+    so it does not exist in a fresh clone)."""
+    prefix = "sqlite:///"
+    if uri.startswith(prefix) and ":memory:" not in uri:
+        folder = os.path.dirname(os.path.abspath(uri[len(prefix):]))
+        os.makedirs(folder, exist_ok=True)
 
 
 def _register_blueprints(app: Flask):
