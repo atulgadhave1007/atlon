@@ -358,7 +358,7 @@ tbody tr:hover{background:var(--c-bg)}
   position:absolute;bottom:28px;left:40px;z-index:1;
   color:rgba(255,255,255,0.35);font-size:11px;letter-spacing:0.03em;
 }
-/* Card wrap — positioned on right side, Stratemis-style */
+/* Card wrap — floating login card on the right side */
 .login-card-wrap{
   position:absolute;right:8%;top:50%;transform:translateY(-50%);z-index:2;
 }
@@ -681,7 +681,7 @@ tbody tr:hover{background:var(--c-bg)}
   <!-- Atlon watermark bottom-left -->
   <div class="login-watermark">© 2026 Atlon HRMS — Enterprise Edition</div>
 
-  <!-- Floating form card, right side — Stratemis style -->
+  <!-- Floating form card, right side -->
   <div class="login-card-wrap">
     <div class="login-card">
 
@@ -1431,7 +1431,7 @@ function navigate(page, params={}) {
 Pages['dashboard'] = async function() {
   const role = State.role;
   if (role === 'super_admin') return Pages['super-stats']();
-  // delegated to Stratemis-style ESS dashboard
+  // delegated to the tile-based ESS dashboard
   return renderESSDashboard();
 
 };

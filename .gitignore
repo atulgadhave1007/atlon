@@ -57,3 +57,7 @@ htmlcov/
 .cache/
 .pytest_cache/
 .mypy_cache/
+
+# Local reference material (third-party screenshots with personal data; never commit)
+ui-designs/
+profile_tabs_v3.png
