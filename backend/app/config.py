@@ -140,8 +140,12 @@ KNOWN_WEAK_SECRETS = {
     "change-me-jwt-secret-64-chars-min",
     "generate-64-char-random-string-here",
     "generate-another-64-char-random-string-here",
+    "replace-with-a-long-random-value",
+    "replace-with-a-different-long-random-value",
     "secret", "changeme", "dev", "development", "test",
 }
+# Any value containing one of these markers is treated as a placeholder.
+PLACEHOLDER_MARKERS = ("change-me", "changeme", "replace-with", "generate-")
 MIN_SECRET_LENGTH = 32
 
 
@@ -153,7 +157,8 @@ def validate_production_config(config) -> list:
     problems = []
     for key in ("SECRET_KEY", "JWT_SECRET"):
         value = config.get(key) or ""
-        if value in KNOWN_WEAK_SECRETS or len(value) < MIN_SECRET_LENGTH:
+        is_placeholder = any(m in value.lower() for m in PLACEHOLDER_MARKERS)
+        if value in KNOWN_WEAK_SECRETS or is_placeholder or len(value) < MIN_SECRET_LENGTH:
             problems.append(
                 f"{key} is unset, a known default, or shorter than {MIN_SECRET_LENGTH} characters"
             )

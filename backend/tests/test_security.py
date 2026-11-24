@@ -114,6 +114,14 @@ class TestProductionConfig:
         })
         assert len(problems) == 3
 
+    def test_env_example_placeholders_are_rejected(self):
+        problems = validate_production_config({
+            "SECRET_KEY": "replace-with-a-long-random-value",
+            "JWT_SECRET": "replace-with-a-different-long-random-value",
+            "CORS_ORIGINS": ["https://hr.example.com"],
+        })
+        assert len(problems) == 2
+
     def test_short_or_identical_secrets_are_rejected(self):
         assert validate_production_config({
             "SECRET_KEY": "short", "JWT_SECRET": STRONG_SECRET_B,
