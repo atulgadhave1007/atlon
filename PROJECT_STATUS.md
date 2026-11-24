@@ -123,7 +123,8 @@ Command: `cd backend && pytest tests/`
 | Metric | Value |
 |---|---|
 | Baseline (before this prep work) | **102 passed, 1 skipped, 0 failed** |
-| Test files | `test_auth.py` (9), `test_employees.py` (7), `test_attendance.py` (11), `test_payroll.py` (10), `test_payroll_integration.py` (66) |
+| After open-source prep | **123 passed, 1 skipped, 0 failed** (21 new tests in `test_security.py`); no pre-existing failures |
+| Test files | `test_auth.py` (9), `test_employees.py` (7), `test_attendance.py` (11), `test_payroll.py` (10), `test_payroll_integration.py` (66), `test_security.py` (21) |
 | Line coverage (`pytest --cov=app`) | **≈52 %** overall |
 | Well covered | payroll_engine 98%, models ~100%, config, middleware |
 | No tests at all | leave, performance, OKR, recruitment, training, surveys, expense, assets, helpdesk, visitors, timesheets, exit, lifecycle, letters, notifications, reports, billing, super admin, biometric (route coverage 17–43%, from shared fixtures only) |
@@ -161,7 +162,8 @@ Command: `cd backend && pytest tests/`
 | nginx | ✅ | `*.atlon.in` wildcard TLS, API and login rate limits, static caching, biometric passthrough. The domain is hard-coded, so self-hosters must edit it. |
 | Celery | ⚠️ | 7 beat jobs. **`app.tasks.helpdesk_tasks.send_overdue_ticket_reminders` is scheduled but the module does not exist.** |
 | Migrations | ❌ | `backend/migrations/` is empty. Schema is created with `db.create_all()` on startup, plus hand-written SQLite patches in `_apply_sqlite_migrations()`. On PostgreSQL, schema changes to existing tables are **not** applied. |
-| CI | ✅ added | `.github/workflows/ci.yml` (Phase 4) |
+| CI | ✅ added | GitHub Actions: pytest on Python 3.10 and 3.12 for every push and PR (`.github/workflows/ci.yml`) |
+| Fresh clone | ✅ fixed | Startup failed with `unable to open database file` because `data/` is git-ignored. `create_app()` now creates the folder |
 
 ---
 
@@ -189,7 +191,7 @@ Command: `cd backend && pytest tests/`
 - [x] Seed script refuses production; demo credentials labelled
 - [x] Tenant-ownership checks on body-supplied foreign keys
 - [x] README, LICENSE, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, templates, CI
-- [ ] Owner decision on third-party UI references (Stratemis): see the Phase 5 notes
+- [x] Third-party UI references reworded; reference screenshots git-ignored (they contain real people's data)
 - [ ] Rotate any credential ever committed (`AtlonAdmin@123` on any running instance)
 
 ### P1: next
@@ -213,4 +215,18 @@ Command: `cd backend && pytest tests/`
 
 ## 10. Changes made during open-source prep (2026-11-24)
 
-See the Phase 6 section below, which is filled in after verification.
+Branch `open-source-prep`. Verified by the full test suite and a boot of a **fresh clone**: super admin login with env credentials worked, the old `AtlonAdmin@123` login returned 401, the demo seed and HR login worked, a foreign `department_id` returned 400, production refused the example secrets, and the seed refused production.
+
+| Area | Change |
+|---|---|
+| Credentials | Hard-coded super admin removed. `_bootstrap_super_admin()` uses `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`. Production with no password creates nothing; development prints a generated password once |
+| Production checks | `validate_production_config()`: rejects placeholder, short or identical `SECRET_KEY` / `JWT_SECRET` and wildcard or empty `CORS_ORIGINS`; the app refuses to start |
+| Auth | `require_auth` rejects super-admin tokens for deleted or inactive admins |
+| Tenant isolation | New `app/utils/tenant_refs.py` (`reject_foreign_refs`) applied to body-supplied foreign keys in 14 blueprints; helpdesk category and training course lookups scoped by tenant |
+| Demo data | `seed_demo.py` labelled DEMO ONLY and refuses `FLASK_ENV=production`; no super admin password printed |
+| Config files | `backend/.env.example` complete with placeholders; root `.env.example` (`POSTGRES_PASSWORD`); `.gitignore` covers `.env.*`, local Claude settings, coverage, third-party reference screenshots |
+| Bug fix | SQLite `data/` folder created on startup (fresh clones previously failed) |
+| Open-source files | `LICENSE` (AGPL-3.0, verbatim), `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), issue and PR templates, CI workflow |
+| Branding | "Stratemis" wording removed from code comments, `CLAUDE.md` and the local `.claude/` docs; third-party screenshots (`ui-designs/`) git-ignored |
+
+Not changed (needs owner action or larger work): see the P0 and P1 lists in section 9.
